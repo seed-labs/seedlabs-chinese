@@ -253,7 +253,7 @@ $ gcc bn_sample.c -lcrypto
 
 
 
-\section{试验任务}
+\section{实验任务}
 
 
 为避免错误，请不要手动输入实验任务中使用的数字，而应复制、粘贴此PDF文件中的数字。
@@ -490,7 +490,8 @@ $ openssl x509 -in Chase.crt -text -noout -certopt ca_default
 
 X.509 证书使用 ASN.1 (Abstract Syntax Notation.One) 标准编码，
 所以如果我们能解析 ASN.1 结构，我们就能很容易从整数中提取任何一个域。
-Openssl 有一个 \texttt{asn1parse} 命令可以用来解析 X.509 证书。
+Openssl 有一个用于解析 ASN.1 结构的 \texttt{asn1parse} 命令，
+这里我们用来解析 X.509 证书。
 
 
 \begin{lstlisting}
