@@ -1,0 +1,549 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Copyright by Wenliang Du.                                       %%
+%%  This work is licensed under the Creative Commons                %%
+%%  Attribution-NonCommercial-ShareAlike 4.0 International License. %%
+%%  To view a copy of this license, visit                           %%
+%%  http://creativecommons.org/licenses/by-nc-sa/4.0/.              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{../../common-files/header}
+\input{../../common-files/copyright}
+
+
+\lhead{\bfseries SEED Labs -- RSA 公钥加密与签名实验}
+
+\begin{document}
+
+\begin{center}
+{\LARGE RSA 公钥加密与签名实验}
+\end{center}
+
+\seedlabcopyright{2018}
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{概述}
+
+RSA（Rivest–Shamir–Adleman）是最早的公钥密码系统之一，被广泛用于安全通信。
+RSA算法首先生成两个大的随机素数，然后使用它们生成公、私钥对。
+公私钥对可用于执行加密、解密、数字签名的生成与验证。
+RSA算法是建立在数论之上的，并且可以利用一些库轻松实现。
+
+本实验的学习目标是让学生获得RSA算法的动手经验。
+通过课堂学习，学生应该已经了解了RSA算法的理论部分，他们知道在数学上如何生成公钥、私钥以及如何执行加密、解密和签名生成、验证。
+通过使用具体数字进行 RSA 算法的每一个基本步骤，他们可以应用课堂上学习到的理论，并加深学生对 RSA 的理解。
+本质上，学生将使用C程序语言实现RSA算法。
+该实验室涵盖以下与安全性有关的主题：
+
+\begin{itemize}[noitemsep]
+\item 公钥密码学
+\item RSA 算法和密钥生成
+\item 大数运算
+\item RSA 加密与解密
+\item 数字签名
+\item X.509 证书
+\end{itemize}
+
+\paragraph{阅读材料}
+有关公钥密码学的详细信息，请阅读以下内容：
+
+\begin{itemize}
+\item Chapter 23 of the SEED Book, \seedbook
+\end{itemize}
+
+\paragraph{实验环境} \seedenvironment \ \
+本实验需要使用 \openssl 库，
+它已经被安装在 Ubuntu16.04 虚拟机上。
+如果你选择使用其他的迅即，你可以执行以下命令来安装 \openssl ：
+
+\begin{lstlisting}
+$ sudo apt-get update
+$ sudo apt-get install libssl-dev
+\end{lstlisting}
+
+\paragraph{致谢}
+该实验室是在锡拉丘兹大学电气工程与计算机科学系的研究生Shatadiya Saha的帮助下开发的。
+%\newpage
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{实验背景}
+
+RSA算法涉及大整数的计算。
+这些计算不能直接使用简单的算术运算符，因为这些运算符只能对原始数据类型（例如32位整数和64位长整数类型）进行运算。
+RSA算法中涉及的数字通常长于512位。
+例如，对于两个32位整数 \texttt{a} 和 \texttt{b} ，我们只需要在程序中使用 \texttt{a * b}。
+但是，如果数很大，我们就不能再这样做了，我们需要使用一种算法（即函数）来计算其乘积。
+
+有几个库可以对任意大小的整数执行算术运算。
+在本实验中，我们将使用 \openssl 提供的 Big Number 库。
+要使用此库，我们将每个大数定义为 \texttt{BIGNUM} 类型，然后使用该库提供的API进行各种操作，例如加法，乘法，乘幂，模运算等。
+
+
+\subsection{BIGNUM APIs}
+
+所有的 BIGNUM API 都可以从 \url{https://linux.die.net/man/3/bn} 中找到。
+在下文中，我们描述了此实验所需的一些API。
+
+
+\begin{itemize}
+
+\item 有一些库函数需要临时变量。
+由于在重复的子例程调用中使用动态内存分配创建大整数的代价很高，
+这里使用 \texttt{BN\_CTX} 结构来保存库函数使用的临时变量。
+我们需要创建这样一个结构，然后传递给需要使用它的函数。
+
+\begin{lstlisting}
+BN_CTX *ctx = BN_CTX_new()
+\end{lstlisting}
+
+
+\item 初始化一个大整数变量。
+
+\begin{lstlisting}
+BIGNUM *a = BN_new()
+\end{lstlisting}
+
+
+\item 给大整数变量赋值的方法有很多。
+
+
+\begin{lstlisting}
+// Assign a value from a decimal number string
+BN_dec2bn(&a, "12345678901112231223");
+
+// Assign a value from a hex number string
+BN_hex2bn(&a, "2A3B4C55FF77889AED3F");
+
+// Generate a random number of 128 bits
+BN_rand(a, 128, 0, 0);
+
+// Generate a random prime number of 128 bits
+BN_generate_prime_ex(a, 128, 1, NULL, NULL, NULL);
+\end{lstlisting}
+
+
+\item 输出一个大整数。
+
+\begin{lstlisting}
+void printBN(char *msg, BIGNUM * a)
+{
+   // Convert the BIGNUM to number string
+   char * number_str = BN_bn2dec(a);
+
+   // Print out the number string
+   printf("%s %s\n", msg, number_str);
+
+   // Free the dynamically allocated memory
+   OPENSSL_free(number_str);
+}
+\end{lstlisting}
+
+
+\item 计算 \texttt{res = $a - b$} 和 \texttt{res = $a + b$}。
+
+\begin{lstlisting}
+BN_sub(res, a, b);
+BN_add(res, a, b);
+\end{lstlisting}
+
+
+
+\item 计算 \texttt{res = $a * b$}。
+注意这个 API 需要 \texttt{BN\_CTX}。
+
+\begin{lstlisting}
+BN_mul(res, a, b, ctx)
+\end{lstlisting}
+
+
+\item 计算 \texttt{res = $a * b$  mod n}：
+
+\begin{lstlisting}
+BN_mod_mul(res, a, b, n, ctx)
+\end{lstlisting}
+
+
+
+\item 计算 \texttt{res = $a^c$ mod n}：
+
+\begin{lstlisting}
+BN_mod_exp(res, a, c, n, ctx)
+\end{lstlisting}
+
+
+\item 计算模逆元，也就是 给定 \texttt{a}，找到一个 \texttt{b}，
+使得 \texttt{$a * b$  mod n = 1}，
+\texttt{b} 被称为 \texttt{a} 模 \texttt{n} 的逆元。
+
+\begin{lstlisting}
+BN_mod_inverse(b, a, n, ctx);
+\end{lstlisting}
+
+
+\end{itemize}
+
+
+
+\subsection{一个完整的例子}
+
+接下来我们展示一个完整的例子。
+在这个例子中，我们初始化三个 BIGNUM 变量 \texttt{a}、\texttt{b}、和 \texttt{n}，
+然后计算 $a*b$ 和 \texttt{($a^b$ mod n)}.
+
+\begin{lstlisting}
+/* bn_sample.c */
+#include <stdio.h>
+#include <openssl/bn.h>
+
+#define NBITS 256
+
+void printBN(char *msg, BIGNUM * a)
+{
+   /* Use BN_bn2hex(a) for hex string
+    * Use BN_bn2dec(a) for decimal string */
+   char * number_str = BN_bn2hex(a);
+   printf("%s %s\n", msg, number_str);
+   OPENSSL_free(number_str);
+}
+
+int main ()
+{
+  BN_CTX *ctx = BN_CTX_new();
+
+  BIGNUM *a = BN_new();
+  BIGNUM *b = BN_new();
+  BIGNUM *n = BN_new();
+  BIGNUM *res = BN_new();
+
+
+  // Initialize a, b, n
+  BN_generate_prime_ex(a, NBITS, 1, NULL, NULL, NULL);
+  BN_dec2bn(&b, "273489463796838501848592769467194369268");
+  BN_rand(n, NBITS, 0, 0);
+
+  // res = a*b
+  BN_mul(res, a, b, ctx);
+  printBN("a * b = ", res);
+
+  // res = a^b mod n
+  BN_mod_exp(res, a, b, n, ctx);
+  printBN("a^c mod n = ", res);
+
+  return 0;
+}
+\end{lstlisting}
+
+
+
+\paragraph{编译}
+我们可以使用下面的命令来编译 \texttt{bn\_sample.c}
+（
+\texttt{-} 后面的字符是字母 $\ell$，不是数字 1。
+它告诉编译器使用 \texttt{crypto} 库
+）。
+
+\begin{lstlisting}[backgroundcolor=]
+$ gcc bn_sample.c -lcrypto
+\end{lstlisting}
+
+
+
+\section{实验任务}
+
+
+为避免错误，请不要手动输入实验任务中使用的数字，而应复制、粘贴此PDF文件中的数字。
+
+
+\paragraph{提交要求}
+在报告中，你应该描述你的步骤，并附上你的代码和运行结果。
+
+
+\subsection{任务 1: 生成私钥}
+
+设 \texttt{p}、 \texttt{q} 和 \texttt{e} 为三个素数，\texttt{n = p*q}。
+我们使用 \texttt{(e, n)} 作为公钥。
+请计算私钥 \texttt{d}。
+\texttt{p}、 \texttt{q}和 \texttt{e} 的十六进制如下。
+注意：尽管本任务中的 \texttt{p} 和 \texttt{q} 非常的大，但它们还没有大到足以保证安全。
+为了简单，我们有意让这些数比较小。
+在实践中，这些数应当至少有 512 bit ，而这里使用的只有 128 bit 。
+
+\begin{lstlisting}
+ p = F7E75FDC469067FFDC4E847C51F452DF
+ q = E85CED54AF57E53E092113E62F436F4F
+ e = 0D88C3
+\end{lstlisting}
+
+
+\subsection{任务 2: 加密一条消息}
+
+请将 \texttt{(e, n)} 作为公钥，加密消息 \texttt{"A top secret!"}（不包括引号）。
+我们需要将 ACSII 字符串转换为十六进制字符串，
+然后用 \texttt{BN\_hex2bn()} 将十六进制字符串转换为 BIGNUM。
+下面的 \texttt{python} 命令可以用于将原始的 ASCII 字符串转换为十六进制字符串。
+
+\begin{lstlisting}
+$ python  -c 'print("A top secret!".encode("hex"))'
+4120746f702073656372657421
+\end{lstlisting}
+
+
+公钥如下所示（十六进制）。
+这里还提供了私钥 \texttt{d} 来帮助你验证你的加密结果。
+
+\begin{lstlisting}
+ n = DCBFFE3E51F62E09CE7032E2677A78946A849DC4CDDE3A4D0CB81629242FB1A5
+ e = 010001 (this hex value equals to decimal 65537)
+ M = A top secret!
+ d = 74D806F9F3A62BAE331FFE3F0A68AFE35B3D2E4794148AACBC26AA381CD7D30D
+\end{lstlisting}
+
+
+
+\subsection{任务 3: 解密一条消息}
+
+本任务中使用的公私钥对与任务2中的相同。
+请解密下面的密文 \texttt{C}，然后转换回 ASCII 字符串。
+
+\begin{lstlisting}
+ C = 8C0F971DF2F3672B28811407E2DABBE1DA0FEBBBDFC7DCB67396567EA1E2493F
+\end{lstlisting}
+
+
+你可以使用下面的 \texttt{python} 命令将一个十六进制字符串转换为 ASCII 字符串。
+\begin{lstlisting}
+$ python  -c 'print("4120746f702073656372657421".decode("hex"))'
+A top secret!
+\end{lstlisting}
+
+
+
+\subsection{任务 4: 为一条消息签名}
+
+本任务中使用的公私钥对与任务2中的相同。
+请为下面的消息生成一个签名（直接为这条消息签名，而不是它的Hash）：
+
+\begin{lstlisting}
+ M = I owe you $2000.
+\end{lstlisting}
+
+稍微改动一下 \texttt{M}，例如将 \texttt{\$2000} 改为 \texttt{\$3000}，然后为修改后的消息签名。
+比较两个签名，并描述你的发现。
+
+
+\subsection{任务 5: 验证一个签名}
+
+Bob 从 Alice 那里收到一条消息附带了她的签名 \texttt{S} 的消息
+M = \texttt{"Launch a missile."}。
+我们知道 Alice 的公钥是 \texttt{(e, n)}。
+请验证这个签名是否确实是 Alice 生成的。
+公钥和签名（十六进制）如下所示：
+
+\begin{lstlisting}
+ M = Launch a missile.
+ S = 643D6F34902D9C7EC90CB0B2BCA36C47FA37165C0005CAB026C0542CBDB6802F
+ e = 010001 (this hex value equals to decimal 65537)
+ n = AE1CD4DC432798D933779FBD46C6E1247F0CF1233595113AA51B450F18116115
+\end{lstlisting}
+
+
+假设上面的签名被破坏了，例如签名的最后一个字节从 \texttt{2F} 变成了 \texttt{3F}，
+也就是说只改变了一个 bit。
+请重复这个实验，描述验证过程中发生了什么。
+
+
+\subsection{任务 6: 手动验证一张 X.509 证书}
+
+在此任务中，我们将使用程序手动验证 X.509 证书。
+X.509 包含有关公钥的数据以及颁发者对该数据的签名。
+我们将从 Web 服务器上下载真实的 X.509 证书，获取其颁发者的公钥，然后使用该公钥来验证证书上的签名。
+
+\paragraph{第 1 步: 从真实的 Web 服务器上下载一张证书}
+在这份文档中，我们使用 \texttt{www.example.org} 服务器。
+学生应当选择一个其他的 Web 服务器，获取与文档中不同的证书。
+（注意 \texttt{www.example.com} 和 \texttt{www.example.org} 的证书是一样的）。
+我们可以用浏览器或者使用下面的命令下载证书：
+
+\begin{lstlisting}
+$ openssl s_client -connect www.example.org:443 -showcerts
+
+Certificate chain
+ 0 s:/C=US/ST=California/L=Los Angeles/O=Internet Corporation for Assigned
+     Names and Numbers/OU=Technology/CN=www.example.org
+   i:/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert SHA2 High Assurance
+     Server CA
+   -----BEGIN CERTIFICATE-----
+   MIIF8jCCBNqgAwIBAgIQDmTF+8I2reFLFyrrQceMsDANBgkqhkiG9w0BAQsFADBw
+   MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3
+   ......
+   wDSiIIWIWJiJGbEeIO0TIFwEVWTOnbNl/faPXpk5IRXicapqiII=
+   -----END CERTIFICATE-----
+ 1 s:/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert SHA2 High
+     Assurance Server CA
+   i:/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert High Assurance
+     EV Root CA
+   -----BEGIN CERTIFICATE-----
+   MIIEsTCCA5mgAwIBAgIQBOHnpNxc8vNtwCtCuF0VnzANBgkqhkiG9w0BAQsFADBs
+   MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3
+   ......
+   cPUeybQ=
+   -----END CERTIFICATE-----
+\end{lstlisting}
+
+命令的结果包含两张证书。
+证书的主体（\texttt{s:} 开头的一项）是 \texttt{www.example.org}，也就是说这张证书是 \texttt{www.example.org} 的证书。
+颁发者（\texttt{i:} 开头）提供了颁发者的信息。
+第二张证书的主体与第一张证书的颁发者相同，也就是说第二章证书是一个中间 CA 的。
+在本任务中，我们使用 CA 的证书验证服务器的证书。
+
+如果上面的命令只返回了一张证书，就说明你获得的证书是根 CA 签发的。
+根 CA 的证书可以从我们的虚拟机中安装的 Firefox 浏览器里获得。
+点击 \texttt{Edit} \ding{213} \texttt{Preferences}
+\ding{213} \texttt{Privacy}  然后点击 \texttt{Security} \ding{213} \texttt{View Certificates}。
+搜索颁发者的名字，然后下载它的证书。
+
+复制每张证书（
+在\texttt{"Begin CERTIFICATE"}和\texttt{"END CERTIFICATE"}的两行中间的文本，包括这两行
+）到一个文件中。
+第一个文件称为 \texttt{c0.pem} ，第二个称为 \texttt{c1.pem}.
+
+
+\paragraph{第 2 步: 从颁发者的证书中 \texttt{(e, n)} 提取公钥}
+Openssl 提供了从 X.509 整数中提取特定属性的命令。
+我们可以使用 \texttt{-modulus} 参数来提取 \texttt{n} 的值。
+没有特定的指令可以用来提取 \texttt{e}，
+但是我们可以输出所有的域，很容易就能找到 \texttt{e} 的值.
+
+\begin{lstlisting}
+For modulus (n):
+$ openssl x509 -in c1.pem -noout -modulus
+
+Print out all the fields, find the exponent (e):
+$ openssl x509 -in c1.pem -text -noout
+\end{lstlisting}
+
+
+\paragraph{第 3 步: 从服务器的证书中提取签名}
+没有 \openssl 命令可以用来提取签名。
+但是我们可以输出所有的域，然后复制签名块到一个文件中（
+注意：如果证书使用的签名算法不是基于 RSA 的，你可以照一张其他的证书。
+）。
+
+\begin{lstlisting}
+$ openssl x509 -in c0.pem -text -noout
+...
+Signature Algorithm: sha256WithRSAEncryption
+  84:a8:9a:11:a7:d8:bd:0b:26:7e:52:24:7b:b2:55:9d:ea:30:
+  89:51:08:87:6f:a9:ed:10:ea:5b:3e:0b:c7:2d:47:04:4e:dd:
+  ......
+  5c:04:55:64:ce:9d:b3:65:fd:f6:8f:5e:99:39:21:15:e2:71:
+  aa:6a:88:82
+\end{lstlisting}
+
+我们需要从数据中移除空格和冒号，这样就能获得可以输入我们的程序的十六进制字符串。
+下面的命令可以实现这个目的。
+\texttt{tr} 命令是一个 Linux 用来处理字符串的工具。
+在本例中， \texttt{-d} 选项用来从数据中删除 \texttt{":"} 和 \texttt{"space"}。
+
+\begin{lstlisting}
+$ cat signature | tr -d '[:space:]:'
+84a89a11a7d8bd0b267e52247bb2559dea30895108876fa9ed10ea5b3e0bc7
+......
+5c045564ce9db365fdf68f5e99392115e271aa6a8882
+\end{lstlisting}
+
+
+
+\begin{comment}
+\begin{lstlisting}
+$ openssl x509 -in Chase.crt -text -noout -certopt ca_default
+               -certopt no_validity -certopt no_serial
+	       -certopt no_subject -certopt no_extensions
+	       -certopt no_signame | grep -v 'Signature Algorithm'
+	                           | tr -d '[:space:]:'
+\end{lstlisting}
+\end{comment}
+
+
+
+\paragraph{第 4 步: 提取服务器的证书主体}
+一个证书颁发机构 （CA） 为一张服务器证书生成签名，
+首先需要计算证书的 Hash ，然后对 Hash 签名。
+为了验证证书，我们也需要从证书中生成一个 Hash。
+由于 Hash 是在计算签名之前生成的，
+我们需要排除证书的签名块，然后再计算 Hash。
+如果没有对证书格式很好的理解，找到证书中用于生成 Hash 的部分是很有挑战性的。
+
+
+%The certificate that we have seen in the previous steps is
+%not the actual certificate in its binary form; it is Base64 encoded
+%form (i.e., the PEM format). The actual certificate is
+%stored using the DER format. We can convert the PEM data to
+%DER data and then extract the part for the hash function. We still need to know where
+%the actual body of the certificate (excluding the signature) starts and end.
+
+
+X.509 证书使用 ASN.1 (Abstract Syntax Notation.One) 标准编码，
+所以如果我们能解析 ASN.1 结构，我们就能很容易从整数中提取任何一个域。
+Openssl 有一个用于解析 ASN.1 结构的 \texttt{asn1parse} 命令，
+这里我们用来解析 X.509 证书。
+
+
+\begin{lstlisting}
+$ openssl asn1parse -i -in c0.pem
+    0:d=0  hl=4 l=1522 cons: SEQUENCE
+    4:d=1  hl=4 l=1242 cons:  SEQUENCE           (*@\ding{202}@*)
+    8:d=2  hl=2 l=   3 cons:   cont [ 0 ]
+   10:d=3  hl=2 l=   1 prim:    INTEGER           :02
+   13:d=2  hl=2 l=  16 prim:   INTEGER           :0E64C5FBC236ADE14B172AEB41C78CB0
+   ... ...
+ 1236:d=4  hl=2 l=  12 cons:     SEQUENCE
+ 1238:d=5  hl=2 l=   3 prim:      OBJECT            :X509v3 Basic Constraints
+ 1243:d=5  hl=2 l=   1 prim:      BOOLEAN           :255
+ 1246:d=5  hl=2 l=   2 prim:      OCTET STRING      [HEX DUMP]:3000
+ 1250:d=1  hl=2 l=  13 cons:  SEQUENCE           (*@\ding{203}@*)
+ 1252:d=2  hl=2 l=   9 prim:   OBJECT            :sha256WithRSAEncryption
+ 1263:d=2  hl=2 l=   0 prim:   NULL
+ 1265:d=1  hl=4 l= 257 prim:  BIT STRING
+\end{lstlisting}
+
+
+从 \ding{202} 开始的部分是用于生成 Hash 的证书主体，
+从 \ding{203} 开始的部分是签名块。
+一行开头的数字是它们的偏移 （Offset）。
+在本例中，证书主体的便宜是 4 到 1249，
+而签名块是从 1250 到文件的末尾。
+对于 X.509 证书，开头的偏移总是一样的（也就是 4 ），
+但结尾的位置依赖于证书内容的长度。
+我们可以使用 \texttt{-strparse} 选项获取起始偏移为 4 的域，也就是证书不带签名的主体部分。
+
+\begin{lstlisting}[backgroundcolor=]
+$ openssl asn1parse -i -in c0.pem -strparse 4 -out c0_body.bin -noout
+\end{lstlisting}
+
+获得了证书的主体之后，我们就可以用下面的命令计算它的 Hash ：
+
+\begin{lstlisting}[backgroundcolor=]
+$ sha256sum c0_body.bin
+\end{lstlisting}
+
+
+
+\paragraph{第 5 步: 验证签名}
+现在我们有了全部的信息，包括 CA 的公钥、 CA 的签名以及服务器证书的主体。
+我们可以执行自己的程序来验证签名是否有效。
+Openssl 提供了一个命令来为我们验证证书，但是这里要求学生使用他们自己的程序来实现。
+否则，这个任务给0分。
+
+
+\section{Submission}
+
+\seedsubmission
+
+\end{document}
+
