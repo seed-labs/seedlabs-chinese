@@ -415,7 +415,8 @@ about:preferences#privacy
 在此任务中，我们将展示 PKI 如何抵御中间人（MITM）攻击。
 图 \ref{pki:fig:mitm} 描述了MITM攻击的工作方式。
 假设 Alice 想通过HTTPS协议访问 \texttt{example.com}。
-她需要从 \texttt{example.com} 服务器获取公钥； Alice 将生成一个秘密，并使用服务器的公钥对该秘密进行加密，然后将其发送到服务器。
+她需要从 \texttt{example.com} 服务器获取公钥；
+Alice 将生成一个秘密，并使用服务器的公钥对该秘密进行加密，然后将其发送到服务器。
 如果攻击者可以拦截 Alice 与服务器之间的通信，那么攻击者可以用其自己的公钥替换服务器的公钥。
 这样 Alice 的秘密实际上是使用攻击者的公钥加密的，因此攻击者将能够读取该秘密。
 攻击者可以使用服务器的公钥将秘密转发给服务器。
@@ -434,7 +435,7 @@ about:preferences#privacy
 该任务的目的是帮助学生了解 PKI 如何抵御此类MITM攻击。
 在任务中，我们将模拟一次MITM攻击，并了解PKI如何精确地防御。
 我们将首先选择一个目标网站。
-在本文档中，我们使用 \texttt{example.com} 作为目标网站。
+在本文档中，我们使用 \texttt{www.example.com} 作为目标网站。
 但在实际任务中，为了使其更有意义，学生可以选择一个受欢迎的网站，例如银行网站或者社交网站。
 
 
@@ -442,14 +443,14 @@ about:preferences#privacy
 在任务4中，我们已经为 \pkiserver 建立了HTTPS网站。
 我们将使用同一台 Apache 服务器来模拟 \texttt{www.example.com} （或学生选择的站点）。
 为此，我们将按照任务4中的说明向Apache的SSL配置文件中添加 \texttt{VirtualHost} 条目，
-\texttt{ServerName} 应该为 \texttt{example.com} ，
+\texttt{ServerName} 应该为 \texttt{www.example.com} ，
 但其余配置可以与任务4中使用的相同。
 显然在真实世界中你不可能获得一个 \texttt{www.example.com} 的合法证书，
 所以我们将会使用与我们自己的服务器相同的证书。
 
 
-我们的目标如下：当用户尝试访问 \texttt{example.com} 时，
-我们将使该用户进入我们的服务器，该服务器托管一个伪造的 \texttt{example.com}。
+我们的目标如下：当用户尝试访问 \texttt{www.example.com} 时，
+我们将使该用户进入我们的服务器，该服务器托管一个伪造的 \texttt{www.example.com}。
 如果这是一个社交网络网站，则假网站可以显示类似于目标网站中的登录页面。
 如果用户无法分辨出区别，则可以在伪造的网页中键入其帐户凭据，从而使攻击者获得凭据。
 
