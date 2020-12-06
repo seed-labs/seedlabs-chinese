@@ -6,14 +6,15 @@
 %%  http://creativecommons.org/licenses/by-nc-sa/4.0/.              %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\input{../../common-files/header}
-\input{../../common-files/copyright}
+\newcommand{\commonfolder}{../../common-files}
 
+\input{\commonfolder/header}
+\input{\commonfolder/copyright}
 
 \newcommand{\pkiFigs}{./Figs}
 
 \newcommand{\OpenSSL} {\texttt{OpenSSL}\xspace}
-\newcommand{\pkiserver}{\texttt{SEEDPKILab2020.com}\xspace}
+\newcommand{\pkiserver}{\texttt{bank32.com}\xspace}
 
 \lhead{\bfseries SEED Labs -- PKI 实验}
 
@@ -42,19 +43,18 @@
 公钥基础设施（PKI）就是解决此问题的一种方法。
 
 
-该实验的目的是让学生获得有关PKI的第一手经验。
-SEED labs 有一系列关于公钥加密的实验，而这个实验则针对PKI。
-通过完成本实验中的任务，学生应该能够更好地理解PKI的工作原理，了解如何使用PKI保护Web以及如何用PKI克服中间人攻击。
+该实验的目的是让学生获得有关 PKI 的第一手经验。
+SEED labs 有一系列关于公钥加密的实验，而这个实验则针对 PKI 。
+通过完成本实验中的任务，学生应该能够更好地理解 PKI 的工作原理，
+了解如何使用 PKI 保护 Web 以及如何用 PKI 抵御中间人攻击。
 此外，学生将能够了解公钥基础设施中信任的根源，以及如果信任根被破坏，将会出现哪些问题。
 本实验涵盖以下主题：
 
 \begin{itemize}[noitemsep]
-\item 公钥加密
-\item 公钥基础设施（PKI）
-\item 证书颁发机构（CA）和根 CA
-\item X.509 证书和自签名证书
-\item Apache, HTTP, 和 HTTPS
-\item 中间人攻击
+   \item 公钥加密与公钥基础设施（PKI）
+   \item 证书颁发机构（CA）、X.509 证书和根 CA
+   \item Apache, HTTP, 和 HTTPS
+   \item 中间人攻击
 \end{itemize}
 
 
@@ -73,8 +73,39 @@ SEED labs 有一系列关于公钥加密的实验，而这个实验则针对PKI�
 另外，还有一个 \textit{RSA公钥加密和签名实验}，其重点是公钥加密的算法部分。
 
 
-\paragraph{实验环境} \seedenvironment
+\paragraph{实验环境} \seedenvironmentB
 
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{实验环境}
+
+在本实验中，我们将生成公钥证书，然后使用它们来保护 Web 服务器。
+证书生成任务将在虚拟机上执行，但是我们将使用容器托管 Web 服务器。
+
+\paragraph{容器安装及其命令}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{\commonfolder/container/setup}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\paragraph{DNS 设置}
+
+在本文档中，我们以 \texttt{www.bank32.com} 为例说明如何部署具有此域名的 HTTPS Web 服务器。
+学生需要使用其他名称完成实验。
+除非教师额外指定名称，否则学生应在服务器名称中包括其姓氏和实验年份。
+例如，王小二在 2020 年进行了此实验，
+则服务器名称应为 \texttt{www.wang2020.com}。
+你不需要拥有此域名，你只需要通过在 \texttt{/etc/hosts}
+中添加以下条目即可将此名称映射到容器的IP地址
+（第一个条目是必需的，否则，本实验说明中的示例将会失效）：
+
+\begin{lstlisting}
+10.9.0.80   www.bank32.com
+10.9.0.80   www.wang2020.com
+\end{lstlisting}
 
 
 % *******************************************
@@ -86,7 +117,7 @@ SEED labs 有一系列关于公钥加密的实验，而这个实验则针对PKI�
 % -------------------------------------------
 % SUBSECTION
 % -------------------------------------------
-\subsection{任务 1： 构建一个证书颁发机构（CA）}
+\subsection{任务 1: 构建一个证书颁发机构（CA）}
 
 证书颁发机构（CA）是颁发数字证书的一个受信任的实体。
 数字证书通过证书指定的主体（Subject）证明公钥的所有权。
@@ -107,20 +138,28 @@ SEED labs 有一系列关于公钥加密的实验，而这个实验则针对PKI�
 要使用 \OpenSSL 来创建证书，首先需要有一个配置文件。
 配置文件的扩展名通常为 {\tt .cnf}。
 在 \OpenSSL 的 {\tt ca}、 {\tt req} 和 {\tt x509} 命令中会使用到这个配置文件。
-\texttt{openssl.conf} 的说明文档可以用搜索引擎找到，
-也可以在 \path{/usr/lib/ssl/openssl.cnf} 中找到一份配置文件。
-把这个文件复制到你的当前目录之后，你需要创建几个在配置文件中指定的子目录
-(参阅 {\tt [CA\_default]} 一节):
+\texttt{openssl.conf} 的说明文档可以网络上找到，
+\OpenSSL 默认会使用 \path{/usr/lib/ssl/openssl.cnf} 作为配置文件。
+由于我们需要对这个文件做出一些改动，我们把它复制到当前目录，
+并指定 \OpenSSL 使用这个副本。
 
+配置文件中的 \texttt{[CA\_default]} 一节展示了我们需要准备的默认设置。
+我们需要创建几个子目录。
+请去掉 \texttt{unique\_subject} 一行的注释，以允许创建有相同主体的多张证书，
+因为在这个实验中我们很可能遇到这种情况。
 
-\begin{lstlisting}
-   dir             = ./demoCA        # Where everything is kept
-   certs           = $dir/certs      # Where the issued certs are kept
-   crl_dir         = $dir/crl        # Where the issued crl are kept
-   new_certs_dir   = $dir/newcerts   # default place for new certs.
-   database        = $dir/index.txt  # database index file.
-   serial          = $dir/serial     # The current serial number
+\begin{lstlisting}[caption={Default CA setting}]
+[ CA_default ]
+dir             = ./demoCA         # Where everything is kept
+certs           = $dir/certs       # Where the issued certs are kept
+crl_dir         = $dir/crl         # Where the issued crl are kept
+database        = $dir/index.txt   # database index file.
+#unique_subject = no               # Set to 'no' to allow creation of
+                                    # several certs with same subject.
+new_certs_dir   = $dir/newcerts    # default place for new certs.
+serial          = $dir/serial      # The current serial number
 \end{lstlisting}
+
 
 对于 \texttt{index.txt} 文件, 创建一个空文件即可。
 对于 \texttt{serial} ，放一个字符串格式的数（例如 1000）在文件中。
@@ -132,166 +171,140 @@ SEED labs 有一系列关于公钥加密的实验，而这个实验则针对PKI�
 这意味着该CA是完全受信任的，并且其证书将用作根证书。
 你可以运行以下命令为CA生成自签名证书：
 
-\begin{lstlisting}[backgroundcolor=]
-$ openssl req -new -x509 -keyout ca.key -out ca.crt -config openssl.cnf
+\begin{lstlisting}
+openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
+            -keyout ca.key -out ca.crt
 \end{lstlisting}
 
-系统将提示你输入一些信息和密码。
+系统将提示你输入一个密码。
 不要丢失此密码，因为每次要使用此CA为其他人签名证书时，都必须输入密码。
-它还将要求填写一些信息，例如“国家名称”，“通用名称”等。
+它还将要求填写证书主体信息，例如“国家名称”“通用名称”等。
 命令的输出存储在两个文件中：{\tt ca.key} 和 {\tt ca.crt}。
 文件{\tt ca.key}包含CA的私钥，而{\tt ca.crt}包含公钥证书。
 
 
-
-% -------------------------------------------
-% SUBSECTION
-% -------------------------------------------
-\subsection{任务 2： 为 \pkiserver 创建一个证书}
-
-现在我们已经成为了一个根CA，准备给我们的客户签发数字证书。
-我们的第一个客户是一个名为 \pkiserver 的公司。
-为了使该公司从CA获得数字证书，需要经历三个步骤。
-
-\paragraph{第 1 步： 生成公私钥对}
-公司首先需要创建自己的公私钥对。
-我们可以运行以下命令来生成RSA密钥对（私钥和公钥）。
-你还需要提供密码来加密私钥（在命令选项指定了使用AES-128加密算法）。
-密钥将存储在文件 \texttt{server.key} 中：
-
-\begin{lstlisting}[backgroundcolor=]
-$ openssl genrsa -aes128 -out server.key 1024
-\end{lstlisting}
-
-\texttt{server.key} 是一个经过编码（和加密）的文本文件，因此你无法看到实际的内容，例如模数，私有指数等。
-要查看这些内容，可以运行以下命令：
-
-\begin{lstlisting}[backgroundcolor=]
-$ openssl rsa -in server.key -text
-\end{lstlisting}
-
-
-
-\paragraph{第 2 步： 生成一个证书签发请求 (CSR).}
-公司拥有密钥文件后，应当生成一个证书签名请求（CSR）。
-该证书签名请求会包括公司的公钥。
-CSR将被发送到CA，CA将为密钥生成证书（在确保CSR中的身份信息与服务器的真实身份匹配之后）。
-请使用 \pkiserver 作为证书请求的通用名称（Common Name）。
-
-\begin{lstlisting}[backgroundcolor=]
-$ openssl req -new -key server.key -out server.csr -config openssl.cnf
-\end{lstlisting}
-
-
-注意到，以上命令与我们在为CA创建自签名证书时使用的命令非常相似。
-它们唯一的区别是{\tt -x509}选项。
-没有这个选项，该命令将生成一个证书签发请求；
-加上这个选项，该命令将生成一个自签名证书。
-
-\paragraph{第 3 步： 生成证书}
-CSR文件需要具有CA的签名才能形成证书。
-在现实世界中，通常将CSR文件发送到受信任的CA进行签名。
-在本实验中，我们将使用我们自己的受信任CA生成证书。
-以下命令使用CA的 {\tt ca.crt} 和 {\tt ca.key} ，将证书签名请求（ {\tt server.csr} ）转换为X509证书（{\tt server.crt}）：
-
-\begin{lstlisting}[backgroundcolor=]
-$ openssl ca -in server.csr -out server.crt -cert ca.crt -keyfile ca.key \
-             -config openssl.cnf
-\end{lstlisting}
-
-如果 \OpenSSL 拒绝生成证书，那么你的请求中的名称很可能与 CA 的名称不匹配。
-匹配规则在配置文件中指定（请参见 \texttt{[policy\_match]} 部分）。
-你可以更改请求名称以符合策略，也可以更改策略。
-配置文件还包含另一个策略（称为 \texttt {policy\_anything}），该策略的限制较少。
-你可以通过更改以下行来选择该策略：
-
-\begin{lstlisting}[backgroundcolor=]
-   "policy = policy_match"  change to "policy = policy_anything".
-\end{lstlisting}
-
-
-
-% -------------------------------------------
-% SUBSECTION
-% -------------------------------------------
-\subsection{任务 3： 部署证书到一个 HTTPS Web 服务器上}
-
-在本实验中，我们将探索网站是如何用证书来保护 Web 的。
-我们将使用 \OpenSSL 的内置Web服务器建立一个HTTPS网站。
-
-
-\paragraph{第 1 步： 配置DNS}
-我们选择 {\pkiserver} 作为网站的名字.
-为了让我们的计算机能识别这个名字，我们需要在 \texttt{/etc/hosts} 中添加下面这一项。
-这一项把域名 {\pkiserver} 映射到 localhost （也就是 127.0.0.1）：
-
-
-\begin{lstlisting}[backgroundcolor=]
-   127.0.0.1  SEEDPKILab2018.com
-\end{lstlisting}
-
-
-\paragraph{第 2 步： 配置 Web 服务器}
-让我们使用上一个任务中生成的证书启动一个简单的 Web 服务器。
-\OpenSSL 允许我们使用 \texttt{s\_server} 命令启动简单的 Web 服务器：
+你也可以在命令行中指定主体信息和密码，这样就不会提示你输入任何其他信息。
+在以下命令中，我们使用 \texttt{-subj} 设置主体信息；
+使用 \texttt{-passout pass:dees} 将密码设置为 \texttt{dees} 。
 
 \begin{lstlisting}
-  # Combine the secret key and certificate into one file
-  % cp server.key server.pem
-  % cat server.crt >> server.pem
-
-  # Launch the web server using server.pem
-  % openssl s_server -cert server.pem -www
+openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
+            -keyout ca.key -out ca.crt  \
+            -subj "/CN=www.modelCA.com/O=Model CA LTD./C=US" \
+            -passout pass:dees
 \end{lstlisting}
 
-默认情况下，服务器会监听 {\tt 4433} 端口。
-你可以使用 {\tt -accept} 选项更改端口。
-现在，使用以下 URL 访问服务器：\url{https://SEEDPKILab2018.com:4433/}。
-你将很有可能在浏览器中看到一条错误消息。
-在 Firefox 中，你会看到类似这样的消息：
-{\em ``seedpkilab2018.com:4433 uses an invalid security certificate. The certificate is not trusted because the issuer certificate is unknown''.}
 
+我们可以使用以下命令查看 X509 证书和 RSA 密钥的解码内容
+（ \texttt{-text} 表示将内容解码为纯文本； \texttt{-noout} 表示不打印出编码版本）：
 
-\paragraph{第 3 步： 使浏览器接受我们的证书}
-如果我们的证书是由 VeriSign 分配的，我们将不会收到这样的错误消息，因为 VeriSign 的证书很有可能已经预先加载到 Firefox 的证书库中。
-不幸的是，\pkiserver 证书是由我们自己的CA签名的（即使用 {\tt ca.crt}），并且 Firefox 无法识别该CA。
-有两种方法可以使 Firefox 接受我们的CA自签名证书。
-
-\begin{itemize}
-
-\item 我们可以要求 Mozilla 在其 Firefox 软件中加入我们的CA证书，这样使用 Firefox 的每个人都可以识别我们的CA。
-这就是真正的CA（例如VeriSign）将其证书添加到Firefox中的方式。
-不幸的是，我们自己的CA没有足够大的市场供Mozilla包含我们的证书，因此我们不会采用这种方法。
-
-\item {\bf 将 {\tt ca.crt} 导入 Firefox ：}
-通过点击以下菜单，我们可以将CA的证书手动添加到 Firefox 浏览器：
-
-\begin{lstlisting}[backgroundcolor=]
-   Edit -> Preference -> Privacy & Security -> View Certificates.
+\begin{lstlisting}
+openssl x509 -in ca.crt -text -noout
+openssl rsa  -in ca.key -text -noout
 \end{lstlisting}
 
-你会看到Firefox已经接受的证书列表。
-从这里，我们可以 ``导入'' 我们自己的证书。
-请导入 {\tt ca.crt} ，然后选择 ``信任此CA可以标识网站'' 。
-你会看到我们的CA证书现在位于Firefox的已接受证书列表中。
+请运行以上命令，并从输出中找出以下内容：
+
+\begin{itemize}[noitemsep]
+   \item 证书中的哪一部分说明了这是一个 CA 的证书？
+   \item 证书中的哪一部分说明了这是一个自签名证书？
+   \item 在 RSA 算法中，我们有公开指数 $e$ 、私有指数 $d$、模数 $n$
+         以及两个秘密的数 $p$ 和 $q$ 使得 $n = pq$ 。
+         请从你的证书和密钥文件中找出这些元素的值。
 \end{itemize}
 
 
-\paragraph{第 4 步： 测试我们的 HTTPS 网站}
-现在访问 \url{https://SEEDPKILab2018.com:4433}。
-请描述和解释你观察到的现象，并完成以下任务:
+% -------------------------------------------
+% SUBSECTION
+% -------------------------------------------
+\subsection{任务 2: 为你的 Web 服务器生成证书请求}
 
-\begin{enumerate}
-\item 修改 {\tt server.pem} 中的一个字节，重新启动服务器并刷新页面。
-      你观察到了什么？
-      确保你之后能回复原始的 {\tt server.pem}。
-      注意：如果 {\tt server.pem} 中某些特定的部分被破坏，服务器可能无法重启。
-      在这种情况下，选择另一个位置修改。
+生成证书签名请求（CSR）的命令与在创建 CA 自签名证书时使用的命令非常相似，
+唯一的区别是是否带有 \texttt{-x509} 选项。
+没有这个选项，该命令将生成一个证书签发请求；
+加上这个选项，该命令将生成一个自签名证书。
+以下命令为 \texttt{www.bank32.com} 生成 CSR （您应该使用自己的服务器名称）：
+
+\begin{lstlisting}
+openssl req -newkey rsa:2048 -sha256  \
+            -keyout server.key   -out server.csr  \
+            -subj "/CN=www.bank32.com/O=Bank32 Inc./C=US" \
+            -passout pass:dees
+\end{lstlisting}
+
+该命令将生成一对公私钥对，然后使用公钥创建证书签名请求。
+我们可以使用以下命令查看 CSR 和私钥文件的解码内容：
+
+\begin{lstlisting}
+openssl req -in server.csr -text -noout
+openssl rsa -in server.key -text -noout
+\end{lstlisting}
+
+\paragraph{添加备用名称（Alternative Name）}
+许多网站都有不同的 URL 。
+例如， \texttt{www.example.com} ， \texttt{example.com} ， \texttt{example.net}
+和 \texttt{example.org} 都指向同一 Web 服务器。
+由于浏览器实施了主机名匹配策略，因此证书中的公用名（Common Name）必须与服务器的主机名匹配，
+否则浏览器将拒绝与服务器通信。
+
+为了使证书具有多个名称， X.509 规范定义了一个可以附加到证书的扩展，名为主体备用名称（SAN）。
+使用 SAN 扩展名，可以在证书的 \texttt{subjectAltName} 字段中指定多个主机名。
+
+要使用此类字段生成证书签名请求，我们可以将所有必要的信息放在配置文件中或命令行中。
+我们在本任务中使用命令行的方法（在 TLS 实验中会使用配置文件的方法）。
+我们可以在 \texttt{openssl req} 命令中添加以下选项。
+应当注意， \texttt{subjectAltName} 扩展字段还必须包括通用名称字段中的主机名。
+否则，通用名称将不会被接受为有效名称。
+
+\begin{lstlisting}
+-addext "subjectAltName = DNS:www.bank32.com,  \
+                          DNS:www.bank32A.com, \
+                          DNS:www.bank32B.com"
+\end{lstlisting}
+
+请在你的证书签名请求中添加两个备用名称。
+在后面的任务中将会用到它们。
 
 
-\item 既然 \pkiserver 指向了 localhost，访问 \url{https://localhost:4433} 将会连接到同一个 Web 服务器。
-      请这样尝试一下，描述并解释你观察到的现象。
-\end{enumerate}
+% -------------------------------------------
+% SUBSECTION
+% -------------------------------------------
+\subsection{任务 3: 为你的服务器生成证书}
+
+CSR文件需要具有CA的签名才能形成证书。
+在现实世界中，通常将CSR文件发送到受信任的CA进行签名。
+在本实验中，我们将使用我们自己的受信任CA生成证书。
+以下命令使用CA的 {\tt ca.crt} 和 {\tt ca.key} ，
+将证书签名请求（ {\tt server.csr} ）转换为X509证书（{\tt server.crt}）：
+
+\begin{lstlisting}
+openssl ca -config myCA_openssl.cnf -policy policy_anything \
+            -md sha256 -days 3650 \
+            -in server.csr -out server.crt -batch \
+            -cert ca.crt -keyfile ca.key
+\end{lstlisting}
+
+在上面的命令中，\texttt{myCA\_openssl.cnf} 是我们从 \path{/usr/lib/ssl/openssl.cnf}
+复制的配置文件（我们在任务 1 中对此文件进行了更改）。
+我们使用配置文件中定义的 \texttt{policy\_anything} 策略，这不是默认策略。
+默认策略有更多限制，要求请求中的某些主体信息必须与 CA 证书中的主体信息匹配。
+命令中使用的策略不强制执行任何匹配规则。
+
+\paragraph{复制扩展域}
+出于安全原因，\texttt{openssl.cnf} 中的默认设置
+不允许 \texttt{openssl ca} 命令将扩展字段从请求复制到最终证书。
+为此，我们可以在配置文件的副本中，取消以下行的注释：
+
+\begin{lstlisting}
+# Extension copying option: use with caution.
+copy_extensions = copy
+\end{lstlisting}
+
+签署证书后，请使用以下命令输出证书的解码内容，并检查是否包含备用名称。
+
+\begin{lstlisting}
+openssl x509 -in server.crt -text -noout
+\end{lstlisting}
 
 
 
@@ -300,78 +313,104 @@ $ openssl ca -in server.csr -out server.crt -cert ca.crt -keyfile ca.key \
 % -------------------------------------------
 \subsection{任务 4： 在基于Apache的HTTPS网站中部署证书}
 
-
-使用 \openssl 的 \texttt{s\_server} 命令设置 HTTPS 服务器主要用于调试和演示。
-在本实验中，我们基于 Apache 建立了一个真实的 HTTPS Web 服务器。
-我们的VM中已经安装了Apache服务器，它支持HTTPS协议。
-要创建HTTPS网站，我们只需要配置Apache服务器，让它知道从哪里获取私钥和证书。
-我们在下面给出一个示例，演示如何为网站 \url{www.example.com} 启用HTTPS。
-你的任务是使用从先前任务生成的证书对 {\pkiserver} 执行相同的操作。
+在此任务中，我们将看到网站如何使用公钥证书来保护 Web 浏览。
+我们将建立一个基于 Apache 的 HTTPS 网站。
+我们的容器中已经安装了 Apache 服务器，它支持 HTTPS 协议。
+要搭建 HTTPS 网站，我们只需要配置 Apache 服务器，让它知道从哪里获取私钥和证书。
+在容器内部，我们已经为 \pkiserver 设置了 HTTPS 站点。
+学生可以按照以下示例来设置自己的 HTTPS 网站。
 
 一个Apache服务器可以同时托管多个网站。
 它需要知道网站文件的存储目录。
 这是通过位于 \url{/etc/apache2/sites-available} 目录中的 \texttt{VirtualHost} 文件完成的。
-要添加HTTP网站，我们将 \texttt{VirtualHost} 条目添加到文件 \texttt{000-default.conf}。
-请参见以下示例。
-
-\begin{lstlisting}
-<VirtualHost *:80>
-    ServerName one.example.com
-    DocumentRoot /var/www/Example_One
-    DirectoryIndex index.html
-</VirtualHost>
-\end{lstlisting}
-
-要添加一个 HTTPS 网站，我们需要在相同文件夹里的 \texttt{default-ssl.conf} 文件中添加一个 \texttt{VirtualHost} 条目。
+在我们的容器中，我们有一个名为 \texttt{bank32\_apache\_ssl.conf} 的文件，其中包含以下条目：
 
 \begin{lstlisting}
 <VirtualHost *:443>
-    ServerName two.example.com
-    DocumentRoot /var/www/Example_Two
-    DirectoryIndex index.html
-
-    SSLEngine On
-    SSLCertificateFile      /etc/apache2/ssl/example_cert.pem  (*@\ding{192}@*)
-    SSLCertificateKeyFile   /etc/apache2/ssl/example_key.pem   (*@\ding{193}@*)
+   DocumentRoot /var/www/bank32
+   ServerName www.bank32.com
+   ServerAlias www.bank32A.com
+   ServerAlias www.bank32B.com
+   DirectoryIndex index.html
+   SSLEngine On
+   SSLCertificateFile    /certs/bank32.crt    (*@\ding{192}@*)
+   SSLCertificateKeyFile /certs/bank32.key    (*@\ding{193}@*)
 </VirtualHost>
 \end{lstlisting}
 
-\texttt{ServerName} 指明了网站的名字，而 \texttt{DocumentRoot} 指明了存放网站文件的位置。
-上面的例子配置了 HTTPS 网站 \url{https://two.example.com}  （端口 \texttt{443}
-是 HTTPS 的默认端口）。
-在设置中，我们需要告诉 Apache 服务器证书 (\ding{192}) 和私钥 (\ding{193}) 存放在了哪里。
+上面的示例设置了 HTTPS 站点 \url{https://www.bank32.com}
+（端口 \texttt{443} 是默认的 HTTPS 端口）。
+\texttt{ServerName} 条目指定网站的名称，
+而 \texttt{DocumentRoot} 条目指定网站文件的存储位置。
+使用 \texttt{ServerAlias} 条目，我们允许网站使用不同的名称。
+你也应该提供两个别名条目。
 
 
-在 \texttt{default-ssl.conf} 文件被修改以后，我们需要运行一系列命令来启用 SSL。
-Apache 将会要求我们输入用于加密私钥的密码。
-当这些都正确和之后以后，我们可以浏览这个网站。
-浏览器与服务器之间所有的流量都会被加密。
+我们还需要告诉 Apache 服务器证书（\ding{192}）和私钥（\ding{193}）的存储位置。
+在 \texttt{Dockerfile} 中，我们已经包含了
+用于将证书和密钥复制到容器的 \texttt{/certs}文件夹的命令。
+
+为了使该网站正常工作，我们需要启用 Apache 的 \texttt{ssl} 模块，然后启用该网站。
+可以使用以下命令完成操作，这些命令在构建容器时已经执行。
 
 \begin{lstlisting}
- // Test the Apache configuration file for errors
- $ sudo apachectl configtest
-
- // Enable the SSL module
- $ sudo a2enmod ssl
-
- // Enable the site we have just edited
- $ sudo a2ensite default-ssl
-
- // Restart Apache
- $ sudo service apache2 restart
+# a2enmod ssl                 // Enable the SSL module
+# a2ensite bank32_apache_ssl  // Enable the sites described in this file
 \end{lstlisting}
 
 
 
-请使用参考以上示例为 \pkiserver 设置 HTTPS 服务器。
-请描述你的操作步骤，添加到 Apache 的配置文件中的内容以及最终结果的屏幕截图，以展示你可以成功浏览HTTPS站点。
+\paragraph{启动 Apache 服务器}
+在容器中 Apache 服务器不会自动启动。
+我们需要在容器里运行以下命令来启动服务器（我们还列出了一些相关命令）：
+
+\begin{lstlisting}
+// Start the server
+# service apache2 start
+
+// Stop the server
+# service apache stop
+
+// Restart a server
+# service apache restart
+\end{lstlisting}
+
+Apache 启动时，需要为每个 HTTPS 站点加载私钥。
+我们的私钥已加密，因此 Apache 会要求我们输入密码进行解密。
+在容器内，用于 \texttt{bank32} 的密码为 \texttt{dees} 。
+如果一切设置正确，我们就可以浏览该网站，并且浏览器和服务器之间的所有流量都将被加密。
+
+请使用以上示例作为指导，为您的网站设置 HTTPS 服务器。
+请描述你的操作步骤、添加到 Apache 的配置文件中的内容以及最终结果的屏幕快照，
+以展示你可以成功浏览 HTTPS 站点。
+
+\paragraph{浏览网站}
+现在，用浏览器访问你的 Web 服务
+（注意：你应该在 URL 的开头加上 \texttt{https}，而不要使用 \texttt{http}）。
+请描述你观察到的现象并做出解释。
+您很可能无法成功，这是因为……（此处省略了原因，学生应在实验报告中做出解释）。
+请解决此问题，并证明你可以成功访问 HTTPS 网站。
+
+下面，我们说明如何将证书加载到 Firefox 。
+学生需要自己弄清楚为什么以及应该加载什么证书。
+要将证书手动添加到 Firefox 浏览器，请在地址栏中键入以下URL，
+然后单击页面上的 \texttt{View Certificates} 按钮（滚动到底部）。
+
+\begin{lstlisting}
+about:preferences#privacy
+\end{lstlisting}
+
+在 \texttt{Authorities} 标签中，你将看到已被 Firefox 接受的证书列表。
+在这里，我们可以导入我们自己的证书。
+选择证书文件后，请选择 ``Trust this CA to identify websites'' 选项。
+你会看到我们的证书现在在 Firefox 接受的证书列表中。
 
 
 
 % -------------------------------------------
 % SUBSECTION
 % -------------------------------------------
-\subsection{任务 5： 发起中间人攻击}
+\subsection{任务 5: 发起中间人攻击}
 
 在此任务中，我们将展示 PKI 如何抵御中间人（MITM）攻击。
 图 \ref{pki:fig:mitm} 描述了MITM攻击的工作方式。
@@ -392,7 +431,6 @@ Apache 将会要求我们输入用于加密私钥的密码。
 \end{figure}
 
 
-
 该任务的目的是帮助学生了解 PKI 如何抵御此类MITM攻击。
 在任务中，我们将模拟一次MITM攻击，并了解PKI如何精确地防御。
 我们将首先选择一个目标网站。
@@ -400,42 +438,51 @@ Apache 将会要求我们输入用于加密私钥的密码。
 但在实际任务中，为了使其更有意义，学生可以选择一个受欢迎的网站，例如银行网站或者社交网站。
 
 
-\paragraph{第 1 步： 启动一个恶意网站}
+\paragraph{第 1 步: 启动一个恶意网站}
 在任务4中，我们已经为 \pkiserver 建立了HTTPS网站。
-我们将使用同一台 Apache 服务器来模拟 \texttt{example.com} （或学生选择的站点）。
-为此，我们将按照任务4中的说明向Apache的SSL配置文件中添加 \texttt{VirtualHost} 条目， \texttt{ServerName} 应该为 \texttt{example.com} ，但其余配置可以与任务4中使用的相同。
-我们的目标如下：当用户尝试访问 \texttt{example.com} 时，我们将使该用户进入我们的服务器，该服务器托管一个伪造的 \texttt{example.com}。
+我们将使用同一台 Apache 服务器来模拟 \texttt{www.example.com} （或学生选择的站点）。
+为此，我们将按照任务4中的说明向Apache的SSL配置文件中添加 \texttt{VirtualHost} 条目，
+\texttt{ServerName} 应该为 \texttt{example.com} ，
+但其余配置可以与任务4中使用的相同。
+显然在真实世界中你不可能获得一个 \texttt{www.example.com} 的合法证书，
+所以我们将会使用与我们自己的服务器相同的证书。
+
+
+我们的目标如下：当用户尝试访问 \texttt{example.com} 时，
+我们将使该用户进入我们的服务器，该服务器托管一个伪造的 \texttt{example.com}。
 如果这是一个社交网络网站，则假网站可以显示类似于目标网站中的登录页面。
 如果用户无法分辨出区别，则可以在伪造的网页中键入其帐户凭据，从而使攻击者获得凭据。
 
 
-\paragraph{第 2 步： 成为中间人}
+\paragraph{第 2 步: 成为中间人}
 有几种方法可以使用户的 HTTPS 请求进入我们的 Web 服务器。
 一种方法是路由攻击，使用户的 HTTPS 请求被路由到我们的 Web 服务器。
-另一种方法是 DNS 攻击，当受害者的计算机尝试找出目标 Web 服务器的 IP 地址时，它将获取我们 Web 服务器的 IP 地址。
-在此任务中，我们使用 DNS 攻击。 无需发动实际的 DNS 缓存中毒攻击，我们只需修改受害者机器的 \texttt{/etc/hosts} 文件，以模拟 DNS 缓存存储攻击的结果（应使用恶意服务器的实际IP地址替换 \texttt{IP\_Address}）。
+另一种方法是 DNS 攻击，当受害者的计算机尝试找出目标 Web 服务器的 IP 地址时，
+它将获取到我们 Web 服务器的 IP 地址。
+在此任务中，我们模拟 DNS 攻击。
+我们无需发动真正的的 DNS 缓存中毒攻击，只需要修改受害者机器的 \texttt{/etc/hosts} 文件，
+通过把 \texttt{www.example.com} 映射到
+我们的恶意 Web 服务器上来模拟 DNS 缓存存储攻击的结果。
 
 
-
-\begin{lstlisting}[backgroundcolor=]
-   <IP_Address>  example.com
+\begin{lstlisting}
+10.9.0.80  www.example.com
 \end{lstlisting}
 
 
-\paragraph{第 3 步： 浏览目标网站}
+\paragraph{第 3 步: 浏览目标网站}
 完成所有设置后，现在访问目标真实网站，并查看您的浏览器会说些什么。
 请解释你观察到的现象。
-
 
 
 
 % -------------------------------------------
 % SUBSECTION
 % -------------------------------------------
-\subsection{任务 6： 使用一个被攻陷的 CA 发起中间人攻击}
+\subsection{任务 6: 使用一个被攻陷的 CA 发起中间人攻击}
 
-不幸的是，我们在任务1中创建的根CA被攻击者攻破，并且其私钥被盗。
-因此，攻击者可以使用此CA的私钥生成任意证书。
+在本任务中，假设我们在任务 1 中创建的根 CA 被攻击者攻破，并且其私钥被盗。
+因此，攻击者可以使用此 CA 的私钥生成任意证书。
 在此任务中，我们将看到这种破坏的结果。
 
 
