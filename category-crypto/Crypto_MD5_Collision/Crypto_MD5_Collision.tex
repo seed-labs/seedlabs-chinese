@@ -82,7 +82,7 @@
 \paragraph{实验环境} \seedenvironmentB \ \
 本实验使用了一个 Marc Stevens 编写的 ``Fast MD5 Collision Generation'' 工具。
 在我们的虚拟机中，它的二进制文件的名字是 \texttt{md5collgen} ，
-已经被安装在 \texttt{/home/seed/bin} 文件夹里。
+已经被安装在 \texttt{/usr/bin} 文件夹里。
 如果你想把它安装到你自己的机器上，可以直接从 \url{https://www.win.tue.nl/hashclash/}
 下载源代码。
 
@@ -263,7 +263,7 @@ int main()
 你可以选择在源代码层面完成这项工作，也就是上面的 C 程序的生成两个版本，
 使得在编译后，它们对应的可执行文件有相同的 MD5 哈希值。
 但是直接在二进制水平操作可能更加简单。
-你可以在 \texttt{xyz} 数组中放一些随机值 \texttt{xyz} 。
+你可以在 \texttt{xyz} 数组中放任意的一些数，
 然后你可以用一个十六进制编辑器来直接在二进制文件中修改 \texttt{xyz} 的内容。
 找出这个数组存放在二进制文件中的哪个部分并不容易。
 然而，如果我们在数组中填入一些固定的值，我们就能容易地在二进制文件中找到它们。
