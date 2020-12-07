@@ -1,14 +1,10 @@
-Code editing is more convenient inside the VM than in containers, 
-because we can use our favorite editors.
-In order for the VM and container to share files, 
-we have created a shared folder between the VM and the container
-using the Docker \texttt{volumes}.
-If you look at the Docker Compose file, you will find out that
-we have added the following entry to some of the containers.
-It indicates mounting the \texttt{./volumes} folder on the host
-machine (i.e., the VM) to the \texttt{/volumes} folder inside the container.
-We will write our code in the \texttt{./volumes} folder (on the VM), so they
-can be used inside the containers.
+在虚拟机中进行代码编辑比在容器中更为方便，因为我们可以使用我们喜欢的编辑器。
+为了使虚拟机和容器共享文件，我们使用 Docker \texttt{volumes}
+在虚拟机和容器之间创建了一个共享文件夹。
+如果你查看 Docker Compose 文件，就会发现我们已经在某些容器中添加了以下条目。
+它指示将主机（即虚拟机）上的 \texttt{./volumes} 文件夹
+挂载到容器内的 \texttt{/volumes} 文件夹。
+我们在虚拟机上将代码写入 \texttt{./volumes} 文件夹，就可以在容器内使用它们。
 
 \begin{lstlisting}
 volumes:
