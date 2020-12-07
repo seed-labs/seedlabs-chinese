@@ -597,7 +597,7 @@ def process_request(ssock_for_browser):
 \end{lstlisting}
 
 通过执行上述操作，我们模拟了重定向攻击的结果：
-受害者到 \url{www.example.com} 的流量将被重定向到攻击者的容器，
+受害者到 \url{www.example.com} 的流量将被重定向到攻击者机器上，
 你的 \texttt{mHTTPSproxy} 在那里等待 HTTP 请求。
 
 
@@ -607,7 +607,7 @@ def process_request(ssock_for_browser):
 并且能够使用 CA 的私钥为任何域名生成伪造但有效的证书。
 在本实验中，浏览器已信任任务 2 中生成的 CA 证书，并且我们假定此 CA 的私钥已被破坏，
 因此你（攻击者）可以使用它为任何 Web 服务器伪造证书。
-请在以下情况下展示您的MITM攻击：
+请在以下情况下展示您的 MITM 攻击：
 
 
 \begin{itemize}
