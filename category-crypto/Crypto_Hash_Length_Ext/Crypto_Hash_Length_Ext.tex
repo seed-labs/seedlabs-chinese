@@ -1,0 +1,439 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Copyright by Wenliang Du.                                       %%
+%%  This work is licensed under the Creative Commons                %%
+%%  Attribution-NonCommercial-ShareAlike 4.0 International License. %%
+%%  To view a copy of this license, visit                           %%
+%%  http://creativecommons.org/licenses/by-nc-sa/4.0/.              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\commonfolder}{../../common-files}
+
+\input{\commonfolder/header}
+\input{\commonfolder/copyright}
+
+
+\lhead{\bfseries SEED Labs -- 哈希长度扩展攻击}
+
+
+\begin{document}
+
+
+\begin{center}
+   {\LARGE 哈希长度扩展攻击}
+\end{center}
+
+\seedlabcopyright{2019}
+
+
+\section{绪论}
+
+当客户端和服务器通过 Internet 通信时，它们会受到中间人（MITM）攻击。
+攻击者可以拦截来自客户端的请求，他可能选择修改数据，然后将修改后的请求发送到服务器。
+在这种情况下，服务器需要验证收到的请求的完整性。
+验证完整性的标准方法是在请求上附加一个称为消息认证码（MAC）的标签。
+计算MAC的方法有很多，但其中一些方法并不安全。
+
+
+MAC 是用密钥和消息计算出来的。
+一种简单的计算 MAC 的方法是将密钥与消息连接起来，并计算结果字符串的单向哈希。
+这种方法看起来不错，但是会遭受长度扩展攻击。
+这种攻击使攻击者可以修改消息，同时仍然可以基于修改后的消息生成有效的MAC，而无需知道密钥。
+
+本实验的目的是帮助学生了解长度扩展攻击的工作原理。
+学生将对服务器程序发起攻击；他们将伪造一个有效的命令并让服务器执行该命令。
+
+
+\paragraph{阅读材料}
+对单向哈希函数的详细介绍可以参见：
+
+\begin{itemize}
+   \item Chapter 22 of the SEED Book, \seedbook
+\end{itemize}
+
+
+\paragraph{实验环境}
+\seedenvironmentB
+\nodependency
+
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{实验环境}
+
+我们为此实验设立了一个 Web 服务器。
+客户端可以向该服务器发送一系列的命令。
+每个请求必须附加一个使用密钥和命令列表计算出来的的 MAC 。
+如果服务器成功验证了 MAC ，它将仅执行请求中的命令。
+我们使用主机 VM 作为客户端，并使用一个容器作为 Web 服务器。
+
+
+\paragraph{容器安装及其命令}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{\commonfolder/container/setup}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\paragraph{关于 Web 服务器}
+我们将服务器程序部署在 \texttt{www.seedlab-hashlen.com} 域名上。
+在我们的 VM 中，我们通过将以下条目添加到 \texttt{/etc/hosts} 文件中来实现
+将此主机名映射到 Web 服务器容器 \texttt{10.9.0.80}
+（如果该条目不在VM中，请添加该条目）。
+
+\begin{lstlisting}
+10.9.0.80  www.seedlab-hashlen.com
+\end{lstlisting}
+
+
+服务器代码位于 \path{Labsetup/image_flask/app} 文件夹中。
+它有两个目录：
+\texttt{www}目录包含服务器代码，
+\texttt{LabHome} 目录包含秘密文件和用于计算 MAC 的密钥。
+
+
+
+
+\paragraph{发送请求} 服务器程序接受以下命令:
+
+\begin{itemize}
+   \item \texttt{lstcmd} 命令:
+         服务器将列出 \texttt{LabHome} 文件夹中的所有文件。
+   \item \texttt{download} 命令:
+         服务器将从 \texttt{LabHome} 目录返回指定文件的内容。
+\end{itemize}
+
+客户端发送到服务器的正常请求如下所示。
+客户端需要传递 \texttt{uid} 参数给服务器。
+服务器根据 \texttt{uid} 从 \texttt{LabHome/key.txt} 获取 MAC 密钥。
+下例中的命令为 \texttt{lstcmd} ，其值设置为 \texttt{1}。
+它请求服务器列出所有文件。
+最后一个参数是基于密钥（由客户端和服务器共享）和命令参数计算出的 MAC 。
+在执行命令之前，服务器将验证 MAC 以确保命令的完整性。
+
+\begin{lstlisting}
+http://www.seedlab-hashlen.com/?myname=JohnDoe&uid=1001&lstcmd=1
+&mac=dc8788905dbcbceffcdd5578887717c12691b3cf1dac6b2f2bcfabc14a6a7f11
+\end{lstlisting}
+
+学生应将 \texttt{myname} 字段中的 \texttt{JohnDoe} 值替换为真实的名字（不允许使用空格）。
+此参数是为了确保不同学生的结果不同，因此学生不能互相复制。
+服务器不使用此参数，但会检查该参数是否存在。
+如果不包含此字段，则请求将被拒绝。
+教师可以使用此参数来检查学生是否自己完成了作业。
+如果学生在此任务中不使用真实姓名，则没有任何分数。
+
+下面展示了另一个示例。
+该请求包括两个命令：列出所有文件并下载文件 \texttt{secret.txt}。
+同样需要附加有效的 MAC ，否则服务器将不会执行这些命令。
+
+\begin{lstlisting}
+http://www.seedlab-hashlen.com/?myname=JohnDoe&uid=1001&lstcmd=1
+&download=secret.txt
+&mac=dc8788905dbcbceffcdd5578887717c12691b3cf1dac6b2f2bcfabc14a6a7f11
+\end{lstlisting}
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{实验任务}
+
+
+% -------------------------------------------
+% SUBSECTION
+% -------------------------------------------
+\subsection{任务 1: Send Request to List Files}
+
+在此任务中，我们将向服务器发送一个良性请求，这样我们可以看到服务器如何响应该请求。
+我们要发送的请求如下：
+
+\begin{lstlisting}
+http://www.seedlab-hashlen.com/?myname=<name>&uid=<need-to-fill>
+&lstcmd=1&mac=<need-to-calculate>
+\end{lstlisting}
+
+要发送这样的请求，除了使用我们的真实姓名外，我们需要填写两个缺少的参数。
+学生需要从 \texttt{LabHome} 目录中的 \texttt{key.txt} 中选择一个 uid 号。
+该文件包含冒号分隔的 uid 和密钥的列表。
+学生可以使用任何 uid 及其关联的密钥。
+例如，学生可以使用 uid \texttt{1001} 及其密钥 \texttt{123456}。
+
+缺少的第二个参数是 MAC ，可以通过将密钥与请求 \texttt{R} 的内容（仅参数部分）连接起来，
+并在其之间添加冒号来计算得出。
+请参见以下示例：
+
+\begin{lstlisting}
+Key:R = 123456:myname=JohnDoe&uid=1001&lstcmd=1
+\end{lstlisting}
+
+使用以下命令可以计算 MAC ：
+
+\begin{lstlisting}
+$ echo -n "123456:myname=JohnDoe&uid=1001&lstcmd=1" | sha256sum
+7d5f750f8b3203bd963d75217c980d139df5d0e50d19d6dfdb8a7de1f8520ce3  -
+\end{lstlisting}
+
+这样我们就可以构造完整的请求，然后使用浏览器将其发送到服务器程序：
+
+\begin{lstlisting}
+http://www.seedlab-hashlen.com/?myname=JohnDoe&uid=1001&lstcmd=1
+&mac=7d5f750f8b3203bd963d75217c980d139df5d0e50d19d6dfdb8a7de1f8520ce3
+\end{lstlisting}
+
+\paragraph{任务}
+请向服务器发送下载命令，并显示可以获得结果。
+
+
+% -------------------------------------------
+% SUBSECTION
+% -------------------------------------------
+\subsection{任务 2: 构建填充}
+
+要进行哈希长度扩展攻击，我们需要了解如何为单向哈希计算填充。
+SHA-256 的块大小为 64 字节，因此在哈希计算过程中，消息 \texttt{M} 将被填充为 64 字节的倍数。
+根据 RFC 6234 ， SHA256 的填充包括一个字节的 \textbackslash x80 ，后跟多个 0 ，
+然后是一个 64 位（ 8 字节）的长度字段（长度是 \texttt{M} 中的 \textbf{bits} 数）。
+
+假定原始消息是 \texttt{M = "This is a test message"}。
+\texttt{M} 的长度为 \texttt{22} 字节，因此填充为 \texttt{64-22 = 42} 字节，
+包括长度字段的 \texttt{8} 字节。
+\texttt{M} 的位长度为 \texttt{22 * 8 = 176 = 0xB0}。
+SHA256 将在以下填充消息中执行：
+
+\begin{lstlisting}
+"This is a test message"
+"\x80"
+"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+"\x00\x00\x00"
+"\x00\x00\x00\x00\x00\x00\x00\xB0"
+\end{lstlisting}
+
+
+需要注意的是，长度字段使用大端序，即如果消息的长度为 \texttt{0x012345} ，
+则填充中的长度字段应为：
+\begin{lstlisting}
+"\x00\x00\x00\x00\x00\x01\x23\x45"
+\end{lstlisting}
+
+
+\paragraph{任务}
+学生需要为以下消息构造填充 （ \texttt{<key>} 和 \texttt{<uid>} 的实际值应从
+\texttt{LabHome/key.txt} 文件中获取。
+
+\begin{lstlisting}
+<key>:myname=<name>&uid=<uid>&lstcmd=1
+\end{lstlisting}
+
+
+
+% -------------------------------------------
+% SUBSECTION
+% -------------------------------------------
+\subsection{任务 3: 使用密钥计算 MAC}
+
+在本实验中，我们添加一个额外的消息 \texttt{N = "Extra message"}
+到填充后的原始消息上 \texttt{M = "This is a test message"}，并计算它的哈希值。
+该程序如下所示。
+
+\begin{lstlisting}
+/* calculate_mac.c */
+#include <stdio.h>
+#include <openssl/sha.h>
+
+int main(int argc, const char *argv[])
+{
+   SHA256_CTX c;
+   unsigned char buffer[SHA256_DIGEST_LENGTH];
+   int i;
+
+   SHA256_Init(&c);
+   SHA256_Update(&c,
+      "This is a test message"
+      "\x80"
+      "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+      "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+      "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+      "\x00\x00\x00"
+      "\x00\x00\x00\x00\x00\x00\x00\xB0"
+      "Extra message",
+      64+13);
+   SHA256_Final(buffer, &c);
+
+   for(i = 0; i < 32; i++) {
+     printf("%02x", buffer[i]);
+   }
+   printf("\n");
+   return 0;
+}
+\end{lstlisting}
+
+学生可以编译运行上面的程序如下所示：
+
+\begin{lstlisting}
+$ gcc calculate_mac.c -o calculate_mac -lcrypto
+$ ./calculate_mac
+\end{lstlisting}
+
+
+\paragraph{任务}
+学生应该更改上面清单中的代码，并为以下请求计算MAC（假设我们知道MAC密钥）：
+
+\begin{lstlisting}
+http://www.seedlab-hashlen.com/?myname=<name>&uid=<uid>
+&lstcmd=1<padding>&download=secret.txt
+&mac=<hash-value>
+\end{lstlisting}
+
+就像上一个任务一样， \texttt{<name>} 的值应该是你的真实姓名。
+\texttt{<uid>} 和 MAC 密钥的值应从 \texttt{LabHome/key.txt} 文件中获取。
+把请求发送到服务器，查看能否成功下载 \texttt{secret.txt} 文件。
+
+应该注意的是，在 URL 中，需要通过将 \texttt{\textbackslash x} 更改为 \texttt{\%}
+来对填充中的所有十六进制数字进行编码。
+例如，在上面的 URL 中，填充中的 \texttt{\textbackslash x80} 应该替换为 \texttt{\%80}。
+在服务器端， URL 中的编码数据将改回十六进制数。
+
+
+% -------------------------------------------
+% SUBSECTION
+% -------------------------------------------
+\subsection{任务 4: 长度扩展攻击}
+
+在上一个任务中，我们展示了合法用户如何计算 MAC （了解 MAC 密钥）。
+在此任务中，我们将以攻击者的身份进行，即，我们不知道MAC密钥。
+但是，我们确实知道有效请求 \texttt{R} 的 MAC 。
+我们的工作是基于 \texttt{R} 提出新的请求，同时仍然能够计算有效的 MAC 。
+
+给定原始消息 \texttt{M = "This is a test message"} 及其 MAC 值，
+我们将说明如何在填充的 \texttt{M} 的末尾添加消息 \texttt{"Extra message"} ，
+然后在不知道秘密 MAC 密钥的情况下计算其 MAC 。
+
+\begin{lstlisting}
+$ echo -n "This is a test message" | sha256sum
+6f3438001129a90c5b1637928bf38bf26e39e57c6e9511005682048bedbef906
+\end{lstlisting}
+
+以下程序可用于计算新消息的 MAC ：
+
+\begin{lstlisting}[escapechar=|]
+/* length_ext.c */
+#include <stdio.h>
+#include <arpa/inet.h>
+#include <openssl/sha.h>
+
+int main(int argc, const char *argv[])
+{
+  int i;
+  unsigned char buffer[SHA256_DIGEST_LENGTH];
+  SHA256_CTX c;
+
+  SHA256_Init(&c);
+  for(i=0; i<64; i++)
+     SHA256_Update(&c, "*", 1);
+
+  // MAC of the original message M (padded)
+  c.h[0] = htole32(0x6f343800);
+  c.h[1] = htole32(0x1129a90c);
+  c.h[2] = htole32(0x5b163792);
+  c.h[3] = htole32(0x8bf38bf2);
+  c.h[4] = htole32(0x6e39e57c);
+  c.h[5] = htole32(0x6e951100);
+  c.h[6] = htole32(0x5682048b);
+  c.h[7] = htole32(0xedbef906);
+
+  // Append additional message
+  SHA256_Update(&c, "Extra message", 13);
+  SHA256_Final(buffer, &c);
+
+  for(i = 0; i < 32; i++) {
+     printf("%02x", buffer[i]);
+  }
+  printf("\n");
+  return 0;
+}
+\end{lstlisting}
+
+Students can compile the program as follows:
+
+\begin{lstlisting}
+$ gcc length_ext.c -o length_ext -lcrypto
+\end{lstlisting}
+
+\paragraph{任务}
+学生应首先为以下请求生成有效的 MAC
+（其中 \texttt{<uid>} 和 MAC 密钥应从 \texttt{LabHome/key.txt} 文件获得）：
+
+\begin{lstlisting}
+http://www.seedlab-hashlen.com/?myname=<name>&uid=<uid>
+&lstcmd=1&mac=<mac>
+\end{lstlisting}
+
+请基于上面计算出的 \texttt{<mac>} 构造一个新的、包含 \texttt{download} 命令的请求。
+这一次，你不允许使用密钥。
+URL 形如：
+
+\begin{lstlisting}
+http://www.seedlab-hashlen.com/?myname=<name>&uid=<uid>
+&lstcmd=1<padding>&download=secret.txt&mac=<new-mac>
+\end{lstlisting}
+
+把构造出的请求发送给服务器，展示你能成功获得 \texttt{secret.txt} 文件的内容。
+
+
+
+% -------------------------------------------
+% SUBSECTION
+% -------------------------------------------
+\subsection{任务 5: 使用 HMAC 缓解攻击}
+
+到目前为止，我们已经看到通过将密钥和消息连接在一起以不安全的方式计算 MAC 时所造成的危害。
+在此任务中，我们将改正这一错误。
+计算 MAC 的标准方法是使用 HMAC 。
+学生应该修改服务器程序的 \texttt{verify\_mac()} 函数，
+并使用 Python 的 \texttt{hmac} 模块来计算MAC。
+该函数位于 \texttt{lab.py} 中。
+给定密钥和消息（均为字符串类型），可以计算 HMAC 如下所示：
+
+\begin{lstlisting}
+mac = hmac.new(bytearray(key.encode('utf-8')),
+               msg=message.encode('utf-8', 'surrogateescape'),
+               digestmod=hashlib.sha256).hexdigest()
+\end{lstlisting}
+
+在使用 HMAC 进行 MAC 计算时，学生应重复任务 1 以发送列出文件的请求。
+假设选择的密钥是 123456 ，则可以通过以下方式计算 HMAC ：
+
+\begin{lstlisting}
+$ python3
+Python 3.5.2
+[GCC 5.4.0 20160609] on linux
+Type "help", "copyright", "credits" or "license" for more information
+>>> import hmac
+>>> import hashlib
+>>> key='123456'
+>>> message='lstcmd=1'
+>>> mac = hmac.new(bytearray(key.encode('utf-8')),
+                   msg=message.encode('utf-8', 'surrogateescape'),
+                   digestmod=hashlib.sha256).hexdigest()
+\end{lstlisting}
+
+学生应说明为什么当客户端和服务器使用 HMAC 时，
+使用长度扩展和附加命令的恶意请求将使 MAC 验证失败。
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{Submission}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{\commonfolder/submission}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\end{document}
