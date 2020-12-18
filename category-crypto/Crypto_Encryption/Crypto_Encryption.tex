@@ -1,0 +1,681 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Copyright by Wenliang Du.                                       %%
+%%  This work is licensed under the Creative Commons                %%
+%%  Attribution-NonCommercial-ShareAlike 4.0 International License. %%
+%%  To view a copy of this license, visit                           %%
+%%  http://creativecommons.org/licenses/by-nc-sa/4.0/.              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\commonfolder}{../../common-files}
+
+\input{\commonfolder/header}
+\input{\commonfolder/copyright}
+
+
+\lhead{\bfseries SEED Labs -- 私钥加密实验}
+
+\begin{document}
+
+
+\begin{center}
+{\LARGE 私钥加密（对称密钥加密）实验}
+\end{center}
+
+\seedlabcopyright{2018}
+
+\newcounter{task}
+\setcounter{task}{1}
+\newcommand{\tasks} {\bf {\noindent (\arabic{task})} \addtocounter{task}{1} \,}
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{概述}
+
+本实验的学习目标是让学生熟悉私钥加密的概念以及一些常见的加密攻击。
+通过本实验，学生将获得有关加密算法，加密模式，填充和初始向量（IV）的实践经验。
+此外，学生将能够使用工具和编写程序来加密/解密消息。
+
+开发人员在使用加密算法和模式时会犯许多常见的错误。
+这些错误会削弱加密的强度，并最终导致出现漏洞。
+该实验向学生展示一些错误，并要求学生发起攻击以利用这些漏洞。
+本实验涵盖以下主题：
+
+\begin{itemize}[noitemsep]
+\item 私钥加密
+\item 代换密码和频率分析
+\item 加密模式，初始向量（IV）和填充（Padding）
+\item 使用加密算法的常见错误
+\item 使用密码库进行编程
+\end{itemize}
+
+
+\paragraph{阅读材料}
+对私钥加密的详细介绍可参见：
+
+\begin{itemize}
+\item Chapter 21 of the SEED Book, \seedbook
+\end{itemize}
+
+
+\paragraph{实验环境} \seedenvironmentB
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{实验环境}
+
+在本实验中，我们使用一个容器来运行加密谕示器和填充谕示器。
+只有任务 6.3 和任务 7 用到了该容器，所以你不需要为其他任务启动该容器。
+
+
+\paragraph{容器安装及其命令}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{\commonfolder/container/setup}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{任务 1: 频率分析}
+
+众所周知，单字母替代密码（也称为单字母密码）是不安全的，因为可以针对它进行频率分析。
+本实验为你提供了一个使用单字母密码加密的密文。
+也就是说，原始文本中的每个字母都由另一个字母替换，而替换的字母不变
+（即在加密过程中，一个字母始终被同一字母替换）。
+你的任务是使用频率分析找出原始文本。
+已知原始文本是英文文章。
+
+
+下文描述了我们是如何加密原始文章的以及进行了哪些简化。
+教师可以使用相同的方法对自己选择的文章进行加密，而不必要求学生使用我们编写的密文。
+
+\begin{itemize}
+
+\item 第 1 步:
+对原始文章做一些简化。
+我们将所有大写字母转换为小写字母，然后删除所有标点符号和数字。
+单词之间的空格被保留了下来，所以你可以在密文中看到单词的边界。
+在真正的使用单字母密码的加密中，空格将被删除。
+这里保留空格以简化任务。
+我们使用以下命令执行此操作：
+
+\begin{lstlisting}
+$ tr [:upper:] [:lower:] < article.txt > lowercase.txt
+$ tr -cd '[a-z][\n][:space:]' < lowercase.txt > plaintext.txt
+\end{lstlisting}
+
+
+\item 第 2 步:
+生成加密密钥，即代换表。
+我们使用 Python 对字母 \texttt{a} - \texttt{z} 进行置换，并使用置换后的字母作为密钥。
+请参考以下程序。
+
+\begin{lstlisting}
+$ python
+>>> import random
+>>> s = "abcdefghijklmnopqrstuvwxyz"
+>>> list = random.sample(s, len(s))
+>>> ''.join(list)
+'sxtrwinqbedpvgkfmalhyuojzc'
+\end{lstlisting}
+
+
+\item 第 3 步:
+使用 \texttt{tr} 命令实现加密。
+我们只需要加密字母，不需要改动空格和换行符。
+
+
+\begin{lstlisting}
+$ tr 'abcdefghijklmnopqrstuvwxyz' 'sxtrwinqbedpvgkfmalhyuojzc' \
+        < plaintext.txt > ciphertext.txt
+\end{lstlisting}
+
+\end{itemize}
+
+
+我们使用其他加密密钥（不是上述加密密钥）创建了密文。
+它包含在 \texttt{Labsetup.zip} 文件中，该文件可以从实验的网站下载。
+你的工作是使用频率分析来找出加密密钥和原始明文。
+
+
+\paragraph{实验指导}
+使用频率分析，你可以很容易地找到某些字符的明文。
+对于这些字符，你可能希望将其改回明文，因为这样可能会获得更多线索。
+最好对明文使用大写字母，这样对于同一字母，我们知道哪个是明文，哪个是密文。
+你可以使用\texttt{tr}命令来执行此操作。
+例如，下面我们将 \texttt{in.txt} 中的字母 \texttt{a}， \texttt{e} 和 \texttt{t}
+分别替换为字母 \texttt{X}，\texttt{G}，\texttt{E}， 结果保存在\texttt{out.txt}中。
+
+
+\begin{lstlisting}
+$ tr 'aet' 'XGE' < in.txt > out.txt
+\end{lstlisting}
+
+
+有许多的在线资源可以供你参考。
+我们在下面列出了四个有用的链接：
+
+
+\begin{itemize}
+  \item \url{http://www.richkni.co.uk/php/crypta/freq.php} :
+        该网站可以生成密文统计信息，包括单字母频率，双字母组频率（2个字母序列）和
+        三字母组频率（3个字母序列）等。
+
+  \item \url{https://en.wikipedia.org/wiki/Frequency_analysis}:
+        维基百科页面提供了典型的英语文本的字母频率。
+
+  \item \url{https://en.wikipedia.org/wiki/Bigram}:
+        双字母组频率。
+
+  \item \url{https://en.wikipedia.org/wiki/Trigram}:
+        三字母组频率。
+\end{itemize}
+
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{任务 2: 使用不同的加密算法和模式加密}
+
+在此任务中，我们将使用各种加密算法和模式。
+你可以使用以下 {\tt openssl enc} 命令来加密、解密文件，
+可以输入 {\tt man openssl} 和 {\tt man enc} 来查看手册。
+
+\begin{lstlisting}
+$ openssl enc -ciphertype -e  -in plain.txt -out cipher.bin \
+              -K  00112233445566778889aabbccddeeff \
+              -iv 0102030405060708
+\end{lstlisting}
+
+请用某种密码类型替换 {\tt ciphertype} ，例如 {\tt -aes-128-cbc} ，{\tt -bf-cbc} ，
+{\tt -aes-128-cfb} 等。
+在本任务中，你应该尝试至少 3 种不同的密码算法。
+你可以通过输入 {\tt man enc} 来找到命令行选项的含义以及支持的所有密码类型。
+我们在下面列出了 {\tt openssl enc} 命令的一些常用选项：
+
+\begin{lstlisting}
+  -in <file>     input file
+  -out <file>    output file
+  -e             encrypt
+  -d             decrypt
+  -K/-iv         key/iv in hex is the next argument
+  -[pP]          print the iv/key (then exit if -P)
+\end{lstlisting}
+
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{任务 3: 加密模式 -- 对比 ECB 和 CBC}
+
+\texttt{Labsetup.zip} 文件中包含的 {\tt pic\_original.bmp} 文件是一张简单的图片。
+我们希望对这张图片进行加密，使没有加密密钥的人无法知道图片中的内容。
+请分别使用 ECB （电子密码簿）和 CBC （密码块链接）模式加密文件，然后执行以下操作：
+
+\begin{enumerate}
+\item 我们将加密后的图片处理为图片，然后使用图片查看器查看图片。
+对于 {\tt .bmp} 文件，前 54 个字节包含有关图片的信息头。
+我们必须正确设置它，才可以将加密文件视为合法的 {\tt .bmp} 文件。
+我们用原始图片的头部替换加密图片的头部。
+你可以使用 \texttt{bless} 十六进制编辑器（已安装在我们的 VM 上）直接修改二进制文件，
+也可以使用以下命令从 \texttt{p1.bmp} 获取标头，从 \texttt{p2.bmp} 获取数据
+（从偏移量 55 到文件末尾），然后将标头和数据组合成一个新文件。
+
+\begin{lstlisting}
+$ head -c 54 p1.bmp  > header
+$ tail -c +55 p2.bmp > body
+$ cat header body > new.bmp
+\end{lstlisting}
+
+
+\item 使用图片查看器显示加密的图片（我们在 VM 上安装了名为 \texttt{eog} 的图片查看器）。
+你能从加密图片中获取有关原始图片的任何有用信息吗？
+请解释你观察到的现象。
+
+\end{enumerate}
+
+请你自己选择一张图片，重复上面的实验并报告你观察到的现象。
+
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{任务 4: 填充}
+
+对于分组密码，当明文的大小不是分块大小的倍数时，可能需要填充。
+PKCS \#5 填充方案被许多分组密码算法广泛使用
+（详见 SEED 书的 21.4 章）。
+我们将进行以下实验以了解这种填充的是怎样工作的：
+
+\begin{enumerate}
+\item 使用 ECB 、 CBC 、 CFB 和 OFB 模式加密一个文件（可以选择任何加密算法）。
+请报告哪些模式有填充，哪些没有。
+对于那些不需要填充的工作模式，请解释为什么它不需要填充。
+
+
+\item 创建三个文件，分别包含 5 个字节， 10 个字节和 16 个字节。
+可以使用以下 \texttt{echo -n}命令创建此类文件。
+下面的示例创建了一个长度为 5 的文件 \texttt{f1.txt}
+（不带 \texttt{-n} 选项，则长度为 6 ，因为 \texttt{echo} 会添加一个换行符）：
+
+\begin{lstlisting}[backgroundcolor=]
+$ echo -n "12345" > f1.txt
+\end{lstlisting}
+
+接下来我们使用 \texttt{openssl enc -aes-128-cbc -e} 来使用 128-bit AES 算法
+和 CBC 工作模式加密这三个文件。
+请描述加密后的文件的大小。
+
+观察在加密的过程中填充了哪些内容。
+使用 \texttt{openssl enc -aes-128-cbc -d} 可以解密这些文件。
+但是，默认情况下解密过程中会去除这些填充，导致我们无法看到填充的内容。
+好在该命令有一个 \texttt{-nopad} 选项可以禁用填充，
+也就是说，在解密的过程中该命令不会去除填充的数据。
+因此，通过查看解密后的数据，我们可以看到用于填充的数据是什么。
+请用这种方法找出这三个文件被添加了哪些填充。
+
+注意，填充的数据可能无法打印出来，你需要使用十六进制工具来显示内容。
+下面的例子展示了如何用十六进制的格式显示一个文件。
+
+\begin{lstlisting}
+$ hexdump -C p1.txt
+00000000  31 32 33 34 35 36 37 38  39 49 4a 4b 4c 0a   |123456789IJKL.|
+$ xxd p1.txt
+00000000: 3132 3334 3536 3738 3949 4a4b 4c0a            123456789IJKL.
+\end{lstlisting}
+
+\end{enumerate}
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{任务 5: 错误传播 -- 被破坏的密文}
+
+为了理解各种工作模式的在错误传播上的性质，请做以下练习：
+
+\begin{enumerate}
+\item 创建一个至少 1000 字节长的文本文件。
+\item 使用 AES-128 算法加密文件。
+\item 不幸的是，加密文件中第 55 个字节的某一个 bit 已损坏。
+      你可以使用 \texttt{bless} 十六进制编辑器来破坏该文件。
+\item 使用正确的密钥和 IV 解密损坏的密文文件。
+\end{enumerate}
+
+请回答以下问题：
+如果工作模式是 ECB 、 CBC 、 CFB 或 OFB ，你分别能从解密后的损坏文件中恢复出多少信息？
+请在做这个任务之前回答这个问题，然后在完成此任务之后看看你的答案是否正确。
+给出你的理由。
+
+
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{任务 6: 初始向量 (IV) 和常见错误}
+
+大多数加密模式都需要初始向量（ IV ）。
+IV 的属性取决于所使用的加密方案。
+如果我们在选择 IV 时不小心，即使我们使用的是安全加密算法和模式，我们加密的数据也可能根本不安全。
+本任务的目的是帮助学生理解如果 IV 选择不合适会产生的问题。
+SEED 书的第 21.5 章提供了有关此任务的详细介绍。
+
+
+% -------------------------------------------
+% SUBSECTION
+% -------------------------------------------
+\subsection{任务 6.1. IV 实验}
+
+对 IV 的基本要求是 \textit{唯一性}，即对于同一个密钥， IV 不能重复使用。
+为了理解原因，请使用 (1) 两个不同的 IV (2) 相同的 IV 加密相同的明文。
+请描述你观察到的现象，并基于此解释为什么 IV 需要是唯一的。
+
+
+
+% -------------------------------------------
+% SUBSECTION
+% -------------------------------------------
+\subsection{任务 6.2. 常见错误：使用相同的 IV}
+
+有人可能会争辩说，如果明文不重复，则使用相同的 IV 是安全的。
+让我们看一下输出反馈（ OFB ）模式。
+假设攻击者掌握了明文（ \texttt{P1} ）和密文（ \texttt{C1} ）。
+如果 IV 始终相同，他/她可以解密其他加密消息吗？
+请尝试根据下面提供的 \texttt{C2} 、 \texttt{P1} 和 \texttt{C1}
+找出 \texttt{P2} 的实际内容。
+
+
+\begin{lstlisting}
+Plaintext  (P1): This is a known message!
+Ciphertext (C1): a469b1c502c1cab966965e50425438e1bb1b5f9037a4c159
+
+Plaintext  (P2): (unknown to you)
+Ciphertext (C2): bf73bcd3509299d566c35b5d450337e1bb175f903fafc159
+\end{lstlisting}
+
+在本实验中，如果我们用 CFB 替换 OFB，有多少 \texttt{P2} 会被泄露？
+你只需要回答这个问题，不需要论证。
+
+本实验中使用的攻击方式被称为\textit{已知明文攻击}。
+在这种密码分析攻击模型中，攻击者既可以获得明文也可以获得密文。
+如果这种攻击能导致进一步的秘密泄露，这中加密方案就应该被认为是不安全的。
+
+%For OFB, if plaintext and ciphertext is know, we can get the random sequence (one-time
+%pad is not one-time).
+
+%For CFB, known-plaintext, the 1st block will be compromised
+
+
+
+% -------------------------------------------
+% SUBSECTION
+% -------------------------------------------
+\subsection{任务 6.3. 常见错误：使用一个可以预测的 IV}
+
+从前面的任务中，我们已经知道了 IV 不能重复。
+对 IV 的另一个重要要求是，对于许多方案，IV必须是不可预测的，即IV必须随机生成。
+在此任务中，我们会看到如果 IV 是可预测的，将会发生什么后果。
+
+假设 Bob 刚刚发出一条加密的消息， Eve 知道这条消息的内容要么是 \texttt{Yes} ，
+要么是 \texttt{No} 。
+Eve 可以看到密文和加密该消息使用的 IV ，但是由于 AES 加密算法强度很高，
+Eve 不知道实际的内容是什么。
+但是，因为 Bob 使用了可以预测的 IV ， Eve 知道 Bob 会用的下一个 IV 是什么。
+% 下面总结一下 Bob 和 Eve 掌握的信息。
+
+% \begin{lstlisting}
+% Encryption method: 128-bit AES with CBC mode.
+
+% Key (in hex):    00112233445566778899aabbccddeeff (known only to Bob)
+% Ciphertext (C1): bef65565572ccee2a9f9553154ed9498 (known to both)
+% IV used on P1 (known to both)
+%      (in ascii): 1234567890123456
+%      (in hex)  : 31323334353637383930313233343536
+% Next IV (known to both)
+%      (in ascii): 1234567890123457
+%      (in hex)  : 31323334353637383930313233343537
+% \end{lstlisting}
+
+
+一个好的加密算法不仅应该抵御前面描述的已知明文攻击，还应该抵御 \textit{选择明文攻击} 。
+这是一种密码分析的攻击模型，在这种模型中攻击者可以获得任意明文的密文。
+由于 AES 是可以抵御选择明文攻击的强密码，因此 Bob 不介意加密 Eve 给定的任何明文。
+他确实为每个纯文本确实使用了不同的，但是他生成的 IV 不是随机的，并且始终可以预测。
+
+
+你的工作是构造一条消息，并请 Bob 对其进行加密并提供密文。
+你要利用这次机会确定 Bob 的秘密消息的实际内容是 \texttt{Yes} 还是 \texttt{No} 。
+在此任务中，我们提供了一个加密谕示器，它可以模拟 Bob 并使用 CBC 模式的 128 位 AES 加密消息。
+你可以通过运行以下命令来访问谕示器：
+
+\begin{lstlisting}
+$ nc 10.9.0.80 3000
+Bob's secret message is either "Yes" or "No", without quotations.
+Bob's ciphertex: 1baf79c133609584792d34120807cf1a
+The IV used    : 5b6ac1907f992f11c81310ae00000000
+
+Next IV        : 5b6ac1907f992f11c81310ae00000001
+You plaintext  : <provided by you>
+
+Next IV        : 5b6ac1907f992f11c81310ae00000002
+You plaintext  : <provided by you>
+\end{lstlisting}
+
+在显示出下一个 IV 之后，谕示器会要求你输入一条明文消息（以十六进制字符串的格式
+% FIXME: ，数据的长度必须为 16 字节，即 AES 的分组大小
+）。
+谕示器会使用下一个 IV 加密这条消息，然后输出新的密文。
+你可以尝试不同的明文，但是虽然 IV 是可以预测的，但是每次都会变。
+为了简化你的工作，我们使谕示器输出下一个 IV 。
+按 \text{Ctrl+C} 即可退出交互。
+
+%\item \textbf{Task 6.4. Encrypting IV or not.}
+%Should IV be encrypted? See CBC mode. In this case, the actual IV becomes a constant. Do
+%an experiment (two plaintext with different IVs will generate the same ciphertext)
+
+
+
+% -------------------------------------------
+% SUBSECTION
+% -------------------------------------------
+\subsection{其他读物}
+
+关于 IV 的更高级的密码分析超出了本实验的范围。
+学生可以阅读这篇文章： \url{https://defuse.ca/cbcmodeiv.htm} 。
+由于对 IV 的要求实际上取决于加密方案，因此当我们选择 IV 时，很难记住应该保留哪些性质。
+但是，如果我们每次加密总是使用一个新的 IV ，并且新的IV需要使用良好的伪随机数生成器来生成，
+使对手无法预测，那会是安全的。
+有关如何生成密码学安全的伪随机数的详细信息，请参见另一个 SEED 实验（随机数生成实验）。
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{任务 7: 密文填塞攻击}
+
+使用 CBC 模式的 AES 加密消息需要填充消息，通常情况下使用 PKCS\#5 填充方案。
+有些系统在解密给定的密文时，会校验填充是否是正确的。
+如果填充是错误的，会抛出一个错误。
+这种看起来无害的行为可能导致 \textit{密文填塞攻击}。
+这种攻击起初是 2002 年 Serge Vaudenay 公布的，许多知名的系统都受到这种攻击的影响，
+例如 Ruby on Rails、 ASP.NET、 和 OpenSSL。
+
+
+在本实验中，我们在 \texttt{5000} 端口上提供了一个填充谕示器。
+在谕示器内部有一条秘密消息，谕示器会输出消息的密文。
+你的最终目标是要使用密文填塞攻击找出这条消息的内容。
+你可以提供任何密文给谕示器，谕示器会检查该密文是否带有正确的填充，并且将结果返回给你
+（谕示器不会显示出秘密消息）。
+你需要做的事情有：
+
+\begin{enumerate}
+  \item 找出这条秘密消息的长度
+  \item 找出这条秘密消息的实际内容
+\end{enumerate}
+
+你可以通过 \texttt{"nc 10.9.0.80 5000"} 与谕示器交互。
+为了简化工作，我们在 \texttt{Labsetup.zip} 中提供了一个名为
+\texttt{padding\_oracle\_attack.py} 的 Python 代码。
+该代码可以与谕示器进行交互，并且显示谕示器返回的结果。
+
+需要注意的是，你每次与谕示器建立一个新的连接，谕示器就会生成一个新的密钥和 IV 来加密这条秘密消息
+（秘密消息总是相同的）。
+因此你会看到不同的密文。
+但是，如果你保持在一个已经建立的连接里，密钥和 IV 都不会变。
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{任务 8: 使用密码库编写程序}
+
+此任务主要使为了计算机科学/工程或需要编程的相关领域学生设计的。
+学生应当和教师确认在他们的课程中是否要求完成此任务。
+
+
+在此任务中，我们提供给了一个明文和一个密文，你的任务使找出加密使用的密钥。
+你需要知道以下信息。
+
+\begin{itemize}
+\item 加密使用了 {\tt aes-128-cbc} 算法。
+\item 加密此明文使用的密钥是一个少于 16 个字符的英语单词。
+      这个单词可以从英语字典中找到。
+      由于这个单词少于 16 个字符（即 128 bits ），在单词的结尾附加了一些井号
+      （\texttt{\#}：十六进制值是 \texttt{0x23}）构成一个 128 bits 的密钥。
+\end{itemize}
+
+
+你的目标是写一个程序找出加密密钥。
+你可以从网络上下载一个英语单词表。
+我们在 \texttt{Labsetup.zip} 文件中也附带了一个英语单词表。
+明文、密文和 IV 如下所示：
+
+
+\begin{lstlisting}
+Plaintext (total 21 characters): This is a top secret.
+Ciphertext (in hex format): 764aa26b55a4da654df6b19e4bce00f4
+                            ed05e09346fb0e762583cb7da2ac93a2
+IV (in hex format):         aabbccddeeff00998877665544332211
+\end{lstlisting}
+
+
+
+你需要注意以下问题：
+
+\begin{itemize}
+\item 如果你选择把明文存储在一个文件里，然后将文件输入到程序中，你需要检查文件的长度是否为 21 。
+如果你在文本编辑器中输入输入这条消息，你需要知道有些编辑器会在文件的末尾添加一个特殊字符。
+存储消息最简单的方法是使用下面的命令
+（ \texttt{-n} 标志使 \texttt{echo} 不在末尾添加换行符）：
+
+
+\begin{lstlisting}[backgroundcolor=]
+$ echo -n "This is a top secret." > file
+\end{lstlisting}
+
+\item 在此任务中，你应当编写你自己的程序调用密码库。
+如果你只是简单地使用 {\tt openssl} 命令完成此任务，将不会得分。
+在下面的链接中可以找到示例代码：
+\begin{lstlisting}[backgroundcolor=]
+ https://www.openssl.org/docs/man1.0.2/crypto/EVP_EncryptInit.html
+\end{lstlisting}
+
+
+\item 当你使用 \texttt{gcc} 编译代码时，不要忘记加上 \texttt{-lcrypto} 标志。
+因为你的代码需要 \texttt{crypto} 库。
+参见下面的例子：
+
+\begin{lstlisting}[backgroundcolor=]
+$ gcc -o myenc myenc.c -lcrypto
+\end{lstlisting}
+
+\end{itemize}
+
+\paragraph{教师需要注意}
+我们鼓励教师使用不同的密钥生成自己的明文和密文。
+这样，学生将无法从其他地方或以前的课程中获得答案。
+教师可以使用以下命令来实现此目标（请用另一个密码替换 \texttt{example} 一词，
+并添加正确数量的 \# 符号以使字符串的长度为 16 ）：
+
+\begin{lstlisting}
+$ echo -n "This is a top secret." > plaintext.txt
+$ echo -n "example#########" > key
+$ xxd -p key
+6578616d706c65232323232323232323
+$ openssl enc -aes-128-cbc -e -in plaintext.txt -out ciphertext.bin \
+      -K  6578616d706c65232323232323232323  \
+      -iv 010203040506070809000a0b0c0d0e0f  \
+$ xxd -p ciphertext.bin
+e5accdb667e8e569b1b34f423508c15422631198454e104ceb658f5918800c22
+\end{lstlisting}
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{Submission}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{\commonfolder/submission}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{致谢}
+
+我们要感谢以下人员和组织的贡献：
+
+\begin{itemize}
+\item Jiamin Shen 开发了：在容器中运行的代码，
+      密文填塞攻击任务和关于可预测 IV 的任务的容器版本。
+
+\item 从 2002 年到 2020 年，美国国家科学基金会为 SEED 项目提供了资金。
+
+\item 锡拉丘兹大学（Syracuse University）从 2001 年开始为 SEED 项目提供资源。
+\end{itemize}
+
+
+
+\end{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+% This part is no longer used
+\subsection{任务 6: Encrypting UDP Communication}
+
+\mynote{
+{\bf For Instructor:} The goal of Task 6 and Task 7 is to get students to use encryption
+programmatically. It is not very necessary to do both tasks. Instructors
+can choose either one of them (or both). If the encryption topic is covered
+in the context of a Network Security class, Task 6 is a better choice,
+because it uses encryption to secure a communication channel.
+}
+
+\noindent
+So far, we have learned how to use the existing tools provided by
+\openssl to encrypt and decrypt messages. We would like to build our own
+tools. Therefore,  the objective of this task
+is to learn how to use \openssl's  crypto library to encrypt/decrypt
+messages in programs.
+
+
+OpenSSL provides an API called EVP, which
+is a high-level interface to cryptographic functions.
+Although OpenSSL also has direct interfaces for each individual
+encryption algorithm, the EVP library provides
+a common interface for various encryption algorithms.
+To ask EVP to use a specific algorithm, we simply need to
+pass our choice to the EVP interface.
+A sample code is given in
+\url{http://www.openssl.org/docs/crypto/EVP_EncryptInit.html}.
+Please get familiar with this program.
+
+
+In this task, we will build a client/server program, which use the UDP protocol and
+the communication is encrypted. The client and server side of the program should
+satisfy the following requirements:
+
+\begin{itemize}
+  \item The data sent between the client and server should be encrypted using
+    an encryption algorithm and mode of your choice (e.g. \texttt{aes-128-cbc}).
+
+  \item The client program runs in a loop, and keeps asking the user to type a message.
+    Once the user hits the return, the message will be sent to the server using UDP.
+    Upon receiving the UDP packet, the server simply prints out the decrypted message.
+
+  \item The client and server need a common secret key to encrypt the communication.
+    Obviously, they cannot send the key to each other in plaintext. In practice, they
+    need to run a key-exchange protocol to get the key. We will cover that protocol
+    after we have learned the public key encryption. In this task, we assume that the client
+    and server has already obtained a secret key between them, so we will just
+    type in the key as an argument when we run the client and server programs.
+    {\bf Note:} you cannot hardcode the key in your program, because it is a very bad habit.
+
+  \item The Initial Vector (IV) needs to be randomly generated by the client,
+    and should be sent to the server in plaintext. You can put the IV at the beginning of the
+    UDP data. In your report, please answer why the client cannot reuse the IV throughout its
+    execution (hint: try to fix your IV in your client program, then type the same message, and
+    use Wireshark to see what you can infer about the encrypted data).
+\end{itemize}
