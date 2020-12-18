@@ -63,6 +63,19 @@
 \paragraph{实验环境} \seedenvironmentB
 
 
+% *******************************************
+% SECTION
+% *******************************************
+\section{实验环境}
+
+在本实验中，我们使用一个容器来运行加密谕示器和填充谕示器。
+只有任务 6.3 和任务 7 用到了该容器，所以你不需要为其他任务启动该容器。
+
+
+\paragraph{容器安装及其命令}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{\commonfolder/container/setup}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 % *******************************************
@@ -382,20 +395,20 @@ Ciphertext (C2): bf73bcd3509299d566c35b5d450337e1bb175f903fafc159
 Eve 可以看到密文和加密该消息使用的 IV ，但是由于 AES 加密算法强度很高，
 Eve 不知道实际的内容是什么。
 但是，因为 Bob 使用了可以预测的 IV ， Eve 知道 Bob 会用的下一个 IV 是什么。
-下面总结一下 Bob 和 Eve 掌握的信息。
+% 下面总结一下 Bob 和 Eve 掌握的信息。
 
-\begin{lstlisting}
-Encryption method: 128-bit AES with CBC mode.
+% \begin{lstlisting}
+% Encryption method: 128-bit AES with CBC mode.
 
-Key (in hex):    00112233445566778899aabbccddeeff (known only to Bob)
-Ciphertext (C1): bef65565572ccee2a9f9553154ed9498 (known to both)
-IV used on P1 (known to both)
-     (in ascii): 1234567890123456
-     (in hex)  : 31323334353637383930313233343536
-Next IV (known to both)
-     (in ascii): 1234567890123457
-     (in hex)  : 31323334353637383930313233343537
-\end{lstlisting}
+% Key (in hex):    00112233445566778899aabbccddeeff (known only to Bob)
+% Ciphertext (C1): bef65565572ccee2a9f9553154ed9498 (known to both)
+% IV used on P1 (known to both)
+%      (in ascii): 1234567890123456
+%      (in hex)  : 31323334353637383930313233343536
+% Next IV (known to both)
+%      (in ascii): 1234567890123457
+%      (in hex)  : 31323334353637383930313233343537
+% \end{lstlisting}
 
 
 一个好的加密算法不仅应该抵御前面描述的已知明文攻击，还应该抵御 \textit{选择明文攻击} 。
@@ -404,10 +417,31 @@ Next IV (known to both)
 他确实为每个纯文本确实使用了不同的，但是他生成的 IV 不是随机的，并且始终可以预测。
 
 
-你的工作是构造一条消息 \texttt{P2} 并要求 Bob 加密它并返回给你密文。
-你的目标是借助这个机会辨别 \texttt{P1} 的真正内容是 \texttt{Yes} 还是 \texttt{No} 。
+你的工作是构造一条消息，并请 Bob 对其进行加密并提供密文。
+你要利用这次机会确定 Bob 的秘密消息的实际内容是 \texttt{Yes} 还是 \texttt{No} 。
+在此任务中，我们提供了一个加密谕示器，它可以模拟 Bob 并使用 CBC 模式的 128 位 AES 加密消息。
+你可以通过运行以下命令来访问谕示器：
 
+\begin{lstlisting}
+$ nc 10.9.0.80 3000
+Bob's secret message is either "Yes" or "No", without quotations.
+Bob's ciphertex: 1baf79c133609584792d34120807cf1a
+The IV used    : 5b6ac1907f992f11c81310ae00000000
 
+Next IV        : 5b6ac1907f992f11c81310ae00000001
+You plaintext  : <provided by you>
+
+Next IV        : 5b6ac1907f992f11c81310ae00000002
+You plaintext  : <provided by you>
+\end{lstlisting}
+
+在显示出下一个 IV 之后，谕示器会要求你输入一条明文消息（以十六进制字符串的格式
+% FIXME: ，数据的长度必须为 16 字节，即 AES 的分组大小
+）。
+谕示器会使用下一个 IV 加密这条消息，然后输出新的密文。
+你可以尝试不同的明文，但是虽然 IV 是可以预测的，但是每次都会变。
+为了简化你的工作，我们使谕示器输出下一个 IV 。
+按 \text{Ctrl+C} 即可退出交互。
 
 %\item \textbf{Task 6.4. Encrypting IV or not.}
 %Should IV be encrypted? See CBC mode. In this case, the actual IV becomes a constant. Do
@@ -432,7 +466,44 @@ Next IV (known to both)
 % *******************************************
 % SECTION
 % *******************************************
-\section{任务 7: 使用密码库编写程序}
+\section{任务 7: 密文填塞攻击}
+
+使用 CBC 模式的 AES 加密消息需要填充消息，通常情况下使用 PKCS\#5 填充方案。
+有些系统在解密给定的密文时，会校验填充是否是正确的。
+如果填充是错误的，会抛出一个错误。
+这种看起来无害的行为可能导致 \textit{密文填塞攻击}。
+这种攻击起初是 2002 年 Serge Vaudenay 公布的，许多知名的系统都受到这种攻击的影响，
+例如 Ruby on Rails、 ASP.NET、 和 OpenSSL。
+
+
+在本实验中，我们在 \texttt{5000} 端口上提供了一个填充谕示器。
+在谕示器内部有一条秘密消息，谕示器会输出消息的密文。
+你的最终目标是要使用密文填塞攻击找出这条消息的内容。
+你可以提供任何密文给谕示器，谕示器会检查该密文是否带有正确的填充，并且将结果返回给你
+（谕示器不会显示出秘密消息）。
+你需要做的事情有：
+
+\begin{enumerate}
+  \item 找出这条秘密消息的长度
+  \item 找出这条秘密消息的实际内容
+\end{enumerate}
+
+你可以通过 \texttt{"nc 10.9.0.80 5000"} 与谕示器交互。
+为了简化工作，我们在 \texttt{Labsetup.zip} 中提供了一个名为
+\texttt{padding\_oracle\_attack.py} 的 Python 代码。
+该代码可以与谕示器进行交互，并且显示谕示器返回的结果。
+
+需要注意的是，你每次与谕示器建立一个新的连接，谕示器就会生成一个新的密钥和 IV 来加密这条秘密消息
+（秘密消息总是相同的）。
+因此你会看到不同的密文。
+但是，如果你保持在一个已经建立的连接里，密钥和 IV 都不会变。
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{任务 8: 使用密码库编写程序}
 
 此任务主要使为了计算机科学/工程或需要编程的相关领域学生设计的。
 学生应当和教师确认在他们的课程中是否要求完成此任务。
@@ -524,6 +595,24 @@ e5accdb667e8e569b1b34f423508c15422631198454e104ceb658f5918800c22
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \input{\commonfolder/submission}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+% *******************************************
+% SECTION
+% *******************************************
+\section{致谢}
+
+我们要感谢以下人员和组织的贡献：
+
+\begin{itemize}
+\item Jiamin Shen 开发了：在容器中运行的代码，
+      密文填塞攻击任务和关于可预测 IV 的任务的容器版本。
+
+\item 从 2002 年到 2020 年，美国国家科学基金会为 SEED 项目提供了资金。
+
+\item 锡拉丘兹大学（Syracuse University）从 2001 年开始为 SEED 项目提供资源。
+\end{itemize}
 
 
 
