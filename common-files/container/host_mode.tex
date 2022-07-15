@@ -1,20 +1,13 @@
-In this lab, the attacker needs to be able to sniff packets,
-but running sniffer programs inside a container has problems, because
-a container is effectively attached to a virtual switch, 
-so it can only see its own traffic, and it is never going to see 
-the packets among other containers. To solve this problem,
-we use the \texttt{host} mode for the attacker container. This
-allows the attacker container to see all the traffics. The following
-entry used on the attacker container:
+在本实验中，攻击者需要能够嗅探数据包。
+但在容器内运行嗅探程序存在问题，因为每个容器实际上是连接到一个虚拟交换机上，
+所以它只能看到自己的流量，而无法看到其他容器间的数据包。
+为了解决这个问题，我们设置攻击者容器的网络模式为 \texttt{host} 模式，
+这允许攻击者容器看到所有的流量。以下是用于配置攻击者容器的条目:
 
 \begin{lstlisting}
 network_mode: host
 \end{lstlisting}
 
-When a container is in the \texttt{host} mode,  it sees
-all the host's network interfaces, and it even has the same
-IP addresses as the host. Basically, it is put in the
-same network namespace as the host VM. However, the container
-is still a separate machine, because its other namespaces are
-still different from the host.
-
+当容器的网络处于\texttt{host} mode,  它可以看到主机的所有网络接口，且甚至拥有与主机相同的
+IP地址。它大体上与主机处于同一网络命名空间。然而，这个容器
+仍然是一台独立的机器，因为其他命名空间与主机不同。
