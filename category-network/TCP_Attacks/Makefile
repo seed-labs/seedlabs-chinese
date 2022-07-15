@@ -10,8 +10,8 @@ DEPEND3 = $(CF)/container/host_mode.tex
 all: $(LABPDF)
 
 %.pdf: %.tex $(DEPEND) $(DEPEND2) $(DEPEND3)
-	pdflatex $<
-	pdflatex $<
+	xelatex $<
+	xelatex $<
 
 clean:
 	rm -f *.log *.dvi *.aux *.bbl *.blg *~ *.out *.det 
