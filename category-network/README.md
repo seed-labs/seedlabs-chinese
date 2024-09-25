@@ -1,4 +1,4 @@
-# Network Security
+# 网络安全
 
 This folder contains network security labs.
 
